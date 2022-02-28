@@ -3,7 +3,7 @@ Local Particle Filter for Numerical Weather Prediction
 
 SPEEDY-LPF
 
-Quick setup
+# Quick setup
 
 0. requirements
 
