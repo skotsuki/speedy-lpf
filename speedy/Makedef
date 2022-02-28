@@ -1,0 +1,8 @@
+## ---for Linux64bit, intel fortran and c and mpich2
+
+FC=mpif90
+FFLAGS_FAST = -convert big_endian -assume byterecl -O3  -march=core-avx2
+# -xhost -pg'
+FFLAGS = $(FFLAGS_FAST)
+
+CC = mpicc
