@@ -1,0 +1,20 @@
+&speedy_param
+  adate         = 1982010100,
+  sdate         = 1982020100,
+  edate         = 1982053118,
+  pdate         = 1982030100,
+  qdate         = 1982053118,
+  nbv           = 40,
+  nrunme        = 28, 
+  natdir        = '/home/o/o140/lpf_speedy/speedy/DATA/nature/'
+  spndir        = '/home/o/o140/lpf_speedy/speedy/DATA/raob/BASELETKF_M000040L0800IADP',
+  expdir        = '/home/o/o140/lpf_speedy/speedy/DATA/raob/BASELETKF_M000040L0800IADP',
+  outtime       = '/home/o/o140/lpf_speedy/speedy/sk_pps_bla/gnu_000/time_raob_LETKF_M000040L0800IADP.txt',
+  outtave       = '/home/o/o140/lpf_speedy/speedy/sk_pps_bla/gnu_000/tave_raob_LETKF_M000040L0800IADP_SMP1982030100-1982053118.txt',
+  !expname       = '',
+  expname       = 'LETKF_M000040L0800IADP',
+  obsname       = 'raob'
+  cneff         = '040',
+  !crtps         = '',
+  crtps         = '0.00',
+/
