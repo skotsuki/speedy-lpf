@@ -1,0 +1,2822 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:54:43 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : netlib2.f
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Fixed -O3 -Qi,p,t -X03
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ External subroutine subprogram "dspdi"
+  (inc)(line-no.)(nest)(optimize)
+               1                           subroutine dspdi(ap,n,kpvt,det,inert,work,job)
+               2                           integer n,job
+               3                           double precision ap(1),work(1)
+               4                           double precision det(2)
+               5                           integer kpvt(1),inert(3)
+               6                     c
+               7                     c     dspdi computes the determinant, inertia and inverse
+               8                     c     of a double precision symmetric matrix using the factors from
+               9                     c     dspfa, where the matrix is stored in packed form.
+              10                     c
+              11                     c     on entry
+              12                     c
+              13                     c        ap      double precision (n*(n+1)/2)
+              14                     c                the output from dspfa.
+              15                     c
+              16                     c        n       integer
+              17                     c                the order of the matrix a.
+              18                     c
+              19                     c        kpvt    integer(n)
+              20                     c                the pivot vector from dspfa.
+              21                     c
+              22                     c        work    double precision(n)
+              23                     c                work vector.  contents ignored.
+              24                     c
+              25                     c        job     integer
+              26                     c                job has the decimal expansion  abc  where
+              27                     c                   if  c .ne. 0, the inverse is computed,
+              28                     c                   if  b .ne. 0, the determinant is computed,
+              29                     c                   if  a .ne. 0, the inertia is computed.
+              30                     c
+              31                     c                for example, job = 111  gives all three.
+              32                     c
+              33                     c     on return
+              34                     c
+              35                     c        variables not requested by job are not used.
+              36                     c
+              37                     c        ap     contains the upper triangle of the inverse of
+              38                     c               the original matrix, stored in packed form.
+              39                     c               the columns of the upper triangle are stored
+              40                     c               sequentially in a one-dimensional array.
+              41                     c
+              42                     c        det    double precision(2)
+              43                     c               determinant of original matrix.
+              44                     c               determinant = det(1) * 10.0**det(2)
+              45                     c               with 1.0 .le. dabs(det(1)) .lt. 10.0
+              46                     c               or det(1) = 0.0.
+              47                     c
+              48                     c        inert  integer(3)
+              49                     c               the inertia of the original matrix.
+              50                     c               inert(1)  =  number of positive eigenvalues.
+              51                     c               inert(2)  =  number of negative eigenvalues.
+              52                     c               inert(3)  =  number of zero eigenvalues.
+              53                     c
+              54                     c     error condition
+              55                     c
+              56                     c        a division by zero will occur if the inverse is requested
+              57                     c        and  dspco  has set rcond .eq. 0.0
+              58                     c        or  dspfa  has set  info .ne. 0 .
+              59                     c
+              60                     c     linpack. this version dated 08/14/78 .
+              61                     c     james bunch, univ. calif. san diego, argonne nat. lab.
+              62                     c
+              63                     c     subroutines and functions
+              64                     c
+              65                     c     blas daxpy,dcopy,ddot,dswap
+              66                     c     fortran dabs,iabs,mod
+              67                     c
+              68                     c     internal variables.
+              69                     c
+              70                           double precision akkp1,ddot,temp
+              71                           double precision ten,d,t,ak,akp1
+              72                           integer ij,ik,ikp1,iks,j,jb,jk,jkp1
+              73                           integer k,kk,kkp1,km1,ks,ksj,kskp1,kstep
+              74                           logical noinv,nodet,noert
+              75                     c
+              76                           noinv = mod(job,10) .eq. 0
+              77                           nodet = mod(job,100)/10 .eq. 0
+              78                           noert = mod(job,1000)/100 .eq. 0
+              79                     c
+              80                           if (nodet .and. noert) go to 140
+              81                              if (noert) go to 10
+              82                                 inert(1) = 0
+              83                                 inert(2) = 0
+              84                                 inert(3) = 0
+              85                        10    continue
+              86                              if (nodet) go to 20
+              87                                 det(1) = 1.0d0
+              88                                 det(2) = 0.0d0
+              89                                 ten = 10.0d0
+              90                        20    continue
+              91                              t = 0.0d0
+              92                              ik = 0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      kpvt
+                                   <<< Loop-information  End >>>
+              93     1                        do 130 k = 1, n
+              94     1                           kk = ik + k
+              95     1                           d = ap(kk)
+              96     1               c
+              97     1               c           check if 1 by 1
+              98     1               c
+              99     1                           if (kpvt(k) .gt. 0) go to 50
+             100     1               c
+             101     1               c              2 by 2 block
+             102     1               c              use det (d  s)  =  (d/t * c - t) * t  ,  t = dabs(s)
+             103     1               c                      (s  c)
+             104     1               c              to avoid underflow/overflow troubles.
+             105     1               c              take two passes through scaling.  use  t  for flag.
+             106     1               c
+             107     1                              if (t .ne. 0.0d0) go to 30
+             108     1                                 ikp1 = ik + k
+             109     1                                 kkp1 = ikp1 + k
+             110     1                                 t = dabs(ap(kkp1))
+             111     1                                 d = (d/t)*ap(kkp1+1) - t
+             112     1                              go to 40
+             113     1                  30          continue
+             114     1                                 d = t
+             115     1                                 t = 0.0d0
+             116     1                  40          continue
+             117     1                  50       continue
+             118     1               c
+             119     1                           if (noert) go to 60
+             120     1                              if (d .gt. 0.0d0) inert(1) = inert(1) + 1
+             121     1                              if (d .lt. 0.0d0) inert(2) = inert(2) + 1
+             122     1                              if (d .eq. 0.0d0) inert(3) = inert(3) + 1
+             123     1                  60       continue
+             124     1               c
+             125     1                           if (nodet) go to 120
+             126     1                              det(1) = d*det(1)
+             127     1                              if (det(1) .eq. 0.0d0) go to 110
+             128     1                  70             if (dabs(det(1)) .ge. 1.0d0) go to 80
+             129     1                                    det(1) = ten*det(1)
+             130     1                                    det(2) = det(2) - 1.0d0
+             131     1                                 go to 70
+             132     1                  80             continue
+             133     1                  90             if (dabs(det(1)) .lt. ten) go to 100
+             134     1                                    det(1) = det(1)/ten
+             135     1                                    det(2) = det(2) + 1.0d0
+             136     1                                 go to 90
+             137     1                 100             continue
+             138     1                 110          continue
+             139     1                 120       continue
+             140     1                           ik = ik + k
+             141     1                 130    continue
+             142                       140 continue
+             143                     c
+             144                     c     compute inverse(a)
+             145                     c
+             146                           if (noinv) go to 270
+             147                              k = 1
+             148                              ik = 0
+             149                       150    if (k .gt. n) go to 260
+             150                                 km1 = k - 1
+             151                                 kk = ik + k
+             152                                 ikp1 = ik + k
+             153                                 kkp1 = ikp1 + k
+             154                                 if (kpvt(k) .lt. 0) go to 180
+             155                     c
+             156                     c              1 by 1
+             157                     c
+             158                                    ap(kk) = 1.0d0/ap(kk)
+             159                                    if (km1 .lt. 1) go to 170
+             160                                       call dcopy(km1,ap(ik+1),1,work,1)
+             161                                       ij = 0
+             162     1       6                         do 160 j = 1, km1
+             163     1       6                            jk = ik + j
+             164     1       6                            ap(jk) = ddot(j,ap(ij+1),1,work,1)
+             165     1       6                            call daxpy(j-1,work(j),ap(ij+1),1,ap(ik+1),1)
+             166     1       6                            ij = ij + j
+             167     1       6         160             continue
+             168                                       ap(kk) = ap(kk) + ddot(km1,work,1,ap(ik+1),1)
+             169                       170          continue
+             170                                    kstep = 1
+             171                                 go to 220
+             172                       180       continue
+             173                     c
+             174                     c              2 by 2
+             175                     c
+             176                                    t = dabs(ap(kkp1))
+             177                                    ak = ap(kk)/t
+             178                                    akp1 = ap(kkp1+1)/t
+             179                                    akkp1 = ap(kkp1)/t
+             180                                    d = t*(ak*akp1 - 1.0d0)
+             181                                    ap(kk) = akp1/d
+             182                                    ap(kkp1+1) = ak/d
+             183                                    ap(kkp1) = -akkp1/d
+             184                                    if (km1 .lt. 1) go to 210
+             185                                       call dcopy(km1,ap(ikp1+1),1,work,1)
+             186                                       ij = 0
+             187     1       6                         do 190 j = 1, km1
+             188     1       6                            jkp1 = ikp1 + j
+             189     1       6                            ap(jkp1) = ddot(j,ap(ij+1),1,work,1)
+             190     1       6                            call daxpy(j-1,work(j),ap(ij+1),1,ap(ikp1+1),1)
+             191     1       6                            ij = ij + j
+             192     1       6         190             continue
+             193                                       ap(kkp1+1) = ap(kkp1+1)
+             194                          *                         + ddot(km1,work,1,ap(ikp1+1),1)
+             195                                       ap(kkp1) = ap(kkp1)
+             196                          *                       + ddot(km1,ap(ik+1),1,ap(ikp1+1),1)
+             197                                       call dcopy(km1,ap(ik+1),1,work,1)
+             198                                       ij = 0
+             199     1       6                         do 200 j = 1, km1
+             200     1       6                            jk = ik + j
+             201     1       6                            ap(jk) = ddot(j,ap(ij+1),1,work,1)
+             202     1       6                            call daxpy(j-1,work(j),ap(ij+1),1,ap(ik+1),1)
+             203     1       6                            ij = ij + j
+             204     1       6         200             continue
+             205                                       ap(kk) = ap(kk) + ddot(km1,work,1,ap(ik+1),1)
+             206                       210          continue
+             207                                    kstep = 2
+             208                       220       continue
+             209                     c
+             210                     c           swap
+             211                     c
+             212                                 ks = iabs(kpvt(k))
+             213                                 if (ks .eq. k) go to 250
+             214                                    iks = (ks*(ks - 1))/2
+             215                                    call dswap(ks,ap(iks+1),1,ap(ik+1),1)
+             216                                    ksj = ik + ks
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ap
+                                   <<< Loop-information  End >>>
+             217     1   s   6s                     do 230 jb = ks, k
+             218     1   p   6v                        j = k + ks - jb
+             219     1   s   6s                        jk = ik + j
+             220     1   s   6s                        temp = ap(jk)
+             221     1   m   6m                        ap(jk) = ap(ksj)
+             222     1   s   6s                        ap(ksj) = temp
+             223     1   s   6s                        ksj = ksj - (j - 1)
+             224     1   p   6v        230          continue
+             225                                    if (kstep .eq. 1) go to 240
+             226                                       kskp1 = ikp1 + ks
+             227                                       temp = ap(kskp1)
+             228                                       ap(kskp1) = ap(kkp1)
+             229                                       ap(kkp1) = temp
+             230                       240          continue
+             231                       250       continue
+             232                                 ik = ik + k
+             233                                 if (kstep .eq. 2) ik = ik + k + 1
+             234                                 k = k + kstep
+             235                              go to 150
+             236                       260    continue
+             237                       270 continue
+             238                           return
+             239                           end
+
+ Diagnostic messages: program name(dspdi)
+   jwd8220o-i  "netlib2.f", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8201o-i  "netlib2.f", line 132: Invariant expression within loop is moved outside loop.
+   jwd8206o-i  "netlib2.f", line 132: Division is changed to multiplication by reciprocal.
+   jwd8201o-i  "netlib2.f", line 134: Invariant expression within loop is moved outside loop.
+   jwd8206o-i  "netlib2.f", line 134: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 177: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 178: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 179: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 181: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 182: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 183: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "netlib2.f", line 218: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+
+ Procedure information
+   Lines      : 239
+   Statements : 147
+   Stack(byte): 32
+   Prefetch num: 0
+
+ External subroutine subprogram "dspfa"
+  (inc)(line-no.)(nest)(optimize)
+             240                           subroutine dspfa(ap,n,kpvt,info)
+             241                           integer n,kpvt(1),info
+             242                           double precision ap(1)
+             243                     c
+             244                     c     dspfa factors a double precision symmetric matrix stored in
+             245                     c     packed form by elimination with symmetric pivoting.
+             246                     c
+             247                     c     to solve  a*x = b , follow dspfa by dspsl.
+             248                     c     to compute  inverse(a)*c , follow dspfa by dspsl.
+             249                     c     to compute  determinant(a) , follow dspfa by dspdi.
+             250                     c     to compute  inertia(a) , follow dspfa by dspdi.
+             251                     c     to compute  inverse(a) , follow dspfa by dspdi.
+             252                     c
+             253                     c     on entry
+             254                     c
+             255                     c        ap      double precision (n*(n+1)/2)
+             256                     c                the packed form of a symmetric matrix  a .  the
+             257                     c                columns of the upper triangle are stored sequentially
+             258                     c                in a one-dimensional array of length  n*(n+1)/2 .
+             259                     c                see comments below for details.
+             260                     c
+             261                     c        n       integer
+             262                     c                the order of the matrix  a .
+             263                     c
+             264                     c     output
+             265                     c
+             266                     c        ap      a block diagonal matrix and the multipliers which
+             267                     c                were used to obtain it stored in packed form.
+             268                     c                the factorization can be written  a = u*d*trans(u)
+             269                     c                where  u  is a product of permutation and unit
+             270                     c                upper triangular matrices , trans(u) is the
+             271                     c                transpose of  u , and  d  is block diagonal
+             272                     c                with 1 by 1 and 2 by 2 blocks.
+             273                     c
+             274                     c        kpvt    integer(n)
+             275                     c                an integer vector of pivot indices.
+             276                     c
+             277                     c        info    integer
+             278                     c                = 0  normal value.
+             279                     c                = k  if the k-th pivot block is singular. this is
+             280                     c                     not an error condition for this subroutine,
+             281                     c                     but it does indicate that dspsl or dspdi may
+             282                     c                     divide by zero if called.
+             283                     c
+             284                     c     packed storage
+             285                     c
+             286                     c          the following program segment will pack the upper
+             287                     c          triangle of a symmetric matrix.
+             288                     c
+             289                     c                k = 0
+             290                     c                do 20 j = 1, n
+             291                     c                   do 10 i = 1, j
+             292                     c                      k = k + 1
+             293                     c                      ap(k)  = a(i,j)
+             294                     c             10    continue
+             295                     c             20 continue
+             296                     c
+             297                     c     linpack. this version dated 08/14/78 .
+             298                     c     james bunch, univ. calif. san diego, argonne nat. lab.
+             299                     c
+             300                     c     subroutines and functions
+             301                     c
+             302                     c     blas daxpy,dswap,idamax
+             303                     c     fortran dabs,dmax1,dsqrt
+             304                     c
+             305                     c     internal variables
+             306                     c
+             307                           double precision ak,akm1,bk,bkm1,denom,mulk,mulkm1,t
+             308                           double precision absakk,alpha,colmax,rowmax
+             309                           integer idamax,ij,ijj,ik,ikm1,im,imax,imaxp1,imim,imj,imk
+             310                           integer j,jj,jk,jkm1,jmax,jmim,k,kk,km1,km1k,km1km1,km2,kstep
+             311                           logical swap
+             312                     c
+             313                     c
+             314                     c     initialize
+             315                     c
+             316                     c     alpha is used in choosing pivot block size.
+             317                           alpha = (1.0d0 + dsqrt(17.0d0))/8.0d0
+             318                     c
+             319                           info = 0
+             320                     c
+             321                     c     main loop on k, which goes from n to 1.
+             322                     c
+             323                           k = n
+             324                           ik = (n*(n - 1))/2
+             325                        10 continue
+             326                     c
+             327                     c        leave the loop if k=0 or k=1.
+             328                     c
+             329                     c     ...exit
+             330                              if (k .eq. 0) go to 200
+             331                              if (k .gt. 1) go to 20
+             332                                 kpvt(1) = 1
+             333                                 if (ap(1) .eq. 0.0d0) info = 1
+             334                     c     ......exit
+             335                                 go to 200
+             336                        20    continue
+             337                     c
+             338                     c        this section of code determines the kind of
+             339                     c        elimination to be performed.  when it is completed,
+             340                     c        kstep will be set to the size of the pivot block, and
+             341                     c        swap will be set to .true. if an interchange is
+             342                     c        required.
+             343                     c
+             344                              km1 = k - 1
+             345                              kk = ik + k
+             346                              absakk = dabs(ap(kk))
+             347                     c
+             348                     c        determine the largest off-diagonal element in
+             349                     c        column k.
+             350                     c
+             351                              imax = idamax(k-1,ap(ik+1),1)
+             352                              imk = ik + imax
+             353                              colmax = dabs(ap(imk))
+             354                              if (absakk .lt. alpha*colmax) go to 30
+             355                                 kstep = 1
+             356                                 swap = .false.
+             357                              go to 90
+             358                        30    continue
+             359                     c
+             360                     c           determine the largest off-diagonal element in
+             361                     c           row imax.
+             362                     c
+             363                                 rowmax = 0.0d0
+             364                                 imaxp1 = imax + 1
+             365                                 im = imax*(imax - 1)/2
+             366                                 imj = im + 2*imax
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             367     1   s   8s                  do 40 j = imaxp1, k
+             368     1   m   8m                     rowmax = dmax1(rowmax,dabs(ap(imj)))
+             369     1   s   8s                     imj = imj + j
+             370     1   p   8v         40       continue
+             371                                 if (imax .eq. 1) go to 50
+             372                                    jmax = idamax(imax-1,ap(im+1),1)
+             373                                    jmim = jmax + im
+             374                                    rowmax = dmax1(rowmax,dabs(ap(jmim)))
+             375                        50       continue
+             376                                 imim = imax + im
+             377                                 if (dabs(ap(imim)) .lt. alpha*rowmax) go to 60
+             378                                    kstep = 1
+             379                                    swap = .true.
+             380                                 go to 80
+             381                        60       continue
+             382                                 if (absakk .lt. alpha*colmax*(colmax/rowmax)) go to 70
+             383                                    kstep = 1
+             384                                    swap = .false.
+             385                                 go to 80
+             386                        70       continue
+             387                                    kstep = 2
+             388                                    swap = imax .ne. km1
+             389                        80       continue
+             390                        90    continue
+             391                              if (dmax1(absakk,colmax) .ne. 0.0d0) go to 100
+             392                     c
+             393                     c           column k is zero.  set info and iterate the loop.
+             394                     c
+             395                                 kpvt(k) = k
+             396                                 info = k
+             397                              go to 190
+             398                       100    continue
+             399                              if (kstep .eq. 2) go to 140
+             400                     c
+             401                     c           1 x 1 pivot block.
+             402                     c
+             403                                 if (.not.swap) go to 120
+             404                     c
+             405                     c              perform an interchange.
+             406                     c
+             407                                    call dswap(imax,ap(im+1),1,ap(ik+1),1)
+             408                                    imj = ik + imax
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ap
+                                   <<< Loop-information  End >>>
+             409     1   s   6s                     do 110 jj = imax, k
+             410     1   p   6v                        j = k + imax - jj
+             411     1   s   6s                        jk = ik + j
+             412     1   s   6s                        t = ap(jk)
+             413     1   m   6m                        ap(jk) = ap(imj)
+             414     1   s   6s                        ap(imj) = t
+             415     1   s   6s                        imj = imj - (j - 1)
+             416     1   p   6v        110          continue
+             417                       120       continue
+             418                     c
+             419                     c           perform the elimination.
+             420                     c
+             421                                 ij = ik - (k - 1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ap
+                                   <<< Loop-information  End >>>
+             422     1   s   4s                  do 130 jj = 1, km1
+             423     1   s   4s                     j = k - jj
+             424     1   s   4s                     jk = ik + j
+             425     1   s   4s                     mulk = -ap(jk)/ap(kk)
+             426     1   s   4s                     t = mulk
+             427     1   s   4s                     call daxpy(j,t,ap(ik+1),1,ap(ij+1),1)
+             428     1   s   4s                     ijj = ij + j
+             429     1   s   4s                     ap(jk) = mulk
+             430     1   s   4s                     ij = ij - (j - 1)
+             431     1   s   4s        130       continue
+             432                     c
+             433                     c           set the pivot array.
+             434                     c
+             435                                 kpvt(k) = k
+             436                                 if (swap) kpvt(k) = imax
+             437                              go to 190
+             438                       140    continue
+             439                     c
+             440                     c           2 x 2 pivot block.
+             441                     c
+             442                                 km1k = ik + k - 1
+             443                                 ikm1 = ik - (k - 1)
+             444                                 if (.not.swap) go to 160
+             445                     c
+             446                     c              perform an interchange.
+             447                     c
+             448                                    call dswap(imax,ap(im+1),1,ap(ikm1+1),1)
+             449                                    imj = ikm1 + imax
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ap
+                                   <<< Loop-information  End >>>
+             450     1   s   6s                     do 150 jj = imax, km1
+             451     1   p   6v                        j = km1 + imax - jj
+             452     1   s   6s                        jkm1 = ikm1 + j
+             453     1   s   6s                        t = ap(jkm1)
+             454     1   m   6m                        ap(jkm1) = ap(imj)
+             455     1   s   6s                        ap(imj) = t
+             456     1   s   6s                        imj = imj - (j - 1)
+             457     1   p   6v        150          continue
+             458                                    t = ap(km1k)
+             459                                    ap(km1k) = ap(imk)
+             460                                    ap(imk) = t
+             461                       160       continue
+             462                     c
+             463                     c           perform the elimination.
+             464                     c
+             465                                 km2 = k - 2
+             466                                 if (km2 .eq. 0) go to 180
+             467                                    ak = ap(kk)/ap(km1k)
+             468                                    km1km1 = ikm1 + k - 1
+             469                                    akm1 = ap(km1km1)/ap(km1k)
+             470                                    denom = 1.0d0 - ak*akm1
+             471                                    ij = ik - (k - 1) - (k - 2)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ap
+                                   <<< Loop-information  End >>>
+             472     1   s   4s                     do 170 jj = 1, km2
+             473     1   s   4s                        j = km1 - jj
+             474     1   s   4s                        jk = ik + j
+             475     1   s   4s                        bk = ap(jk)/ap(km1k)
+             476     1   s   4s                        jkm1 = ikm1 + j
+             477     1   s   4s                        bkm1 = ap(jkm1)/ap(km1k)
+             478     1   s   4s                        mulk = (akm1*bk - bkm1)/denom
+             479     1   s   4s                        mulkm1 = (ak*bkm1 - bk)/denom
+             480     1   s   4s                        t = mulk
+             481     1   s   4s                        call daxpy(j,t,ap(ik+1),1,ap(ij+1),1)
+             482     1   s   4s                        t = mulkm1
+             483     1   s   4s                        call daxpy(j,t,ap(ikm1+1),1,ap(ij+1),1)
+             484     1   s   4s                        ap(jk) = mulk
+             485     1   s   4s                        ap(jkm1) = mulkm1
+             486     1   s   4s                        ijj = ij + j
+             487     1   s   4s                        ij = ij - (j - 1)
+             488     1   s   4s        170          continue
+             489                       180       continue
+             490                     c
+             491                     c           set the pivot array.
+             492                     c
+             493                                 kpvt(k) = 1 - k
+             494                                 if (swap) kpvt(k) = -imax
+             495                                 kpvt(k-1) = kpvt(k)
+             496                       190    continue
+             497                              ik = ik - (k - 1)
+             498                              if (kstep .eq. 2) ik = ik - (k - 2)
+             499                              k = k - kstep
+             500                           go to 10
+             501                       200 continue
+             502                           return
+             503                           end
+
+ Diagnostic messages: program name(dspfa)
+   jwd8220o-i  "netlib2.f", line 240: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "netlib2.f", line 410: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "netlib2.f", line 451: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "netlib2.f", line 467: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 469: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 475: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 477: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 478: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 479: Division is changed to multiplication by reciprocal.
+
+ Procedure information
+   Lines      : 264
+   Statements : 144
+   Stack(byte): 16
+   Prefetch num: 0
+
+ External function subprogram "pythag"
+  (inc)(line-no.)(nest)(optimize)
+             504                           double precision function pythag(a,b)
+             505                           double precision a,b
+             506                     c
+             507                     c     finds dsqrt(a**2+b**2) without overflow or destructive underflow
+             508                     c
+             509                           double precision p,r,s,t,u
+             510                           p = dmax1(dabs(a),dabs(b))
+             511                           if (p .eq. 0.0d0) go to 20
+             512                           r = (dmin1(dabs(a),dabs(b))/p)**2
+             513                        10 continue
+             514                              t = 4.0d0 + r
+             515                              if (t .eq. 4.0d0) go to 20
+             516                              s = r/t
+             517                              u = 1.0d0 + 2.0d0*s
+             518                              p = u*p
+             519                              r = (s/u)**2 * r
+             520                           go to 10
+             521                        20 pythag = p
+             522                           return
+             523                           end
+
+ Procedure information
+   Lines      : 20
+   Statements : 17
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "rs"
+  (inc)(line-no.)(nest)(optimize)
+             524                           subroutine rs(nm,n,a,w,matz,z,fv1,fv2,ierr)
+             525                     c
+             526                           integer n,nm,ierr,matz
+             527                           double precision a(nm,n),w(n),z(nm,n),fv1(n),fv2(n)
+             528                     c
+             529                     c     this subroutine calls the recommended sequence of
+             530                     c     subroutines from the eigensystem subroutine package (eispack)
+             531                     c     to find the eigenvalues and eigenvectors (if desired)
+             532                     c     of a real symmetric matrix.
+             533                     c
+             534                     c     on input
+             535                     c
+             536                     c        nm  must be set to the row dimension of the two-dimensional
+             537                     c        array parameters as declared in the calling program
+             538                     c        dimension statement.
+             539                     c
+             540                     c        n  is the order of the matrix  a.
+             541                     c
+             542                     c        a  contains the real symmetric matrix.
+             543                     c
+             544                     c        matz  is an integer variable set equal to zero if
+             545                     c        only eigenvalues are desired.  otherwise it is set to
+             546                     c        any non-zero integer for both eigenvalues and eigenvectors.
+             547                     c
+             548                     c     on output
+             549                     c
+             550                     c        w  contains the eigenvalues in ascending order.
+             551                     c
+             552                     c        z  contains the eigenvectors if matz is not zero.
+             553                     c
+             554                     c        ierr  is an integer output variable set equal to an error
+             555                     c           completion code described in the documentation for tqlrat
+             556                     c           and tql2.  the normal completion code is zero.
+             557                     c
+             558                     c        fv1  and  fv2  are temporary storage arrays.
+             559                     c
+             560                     c     questions and comments should be directed to burton s. garbow,
+             561                     c     mathematics and computer science div, argonne national laboratory
+             562                     c
+             563                     c     this version dated august 1983.
+             564                     c
+             565                     c     ------------------------------------------------------------------
+             566                     c
+             567                           if (n .le. nm) go to 10
+             568                           ierr = 10 * n
+             569                           go to 50
+             570                     c
+             571                        10 if (matz .ne. 0) go to 20
+             572                     c     .......... find eigenvalues only ..........
+             573                           call  tred1(nm,n,a,w,fv1,fv2)
+             574                     *  tqlrat encounters catastrophic underflow on the Vax
+             575                     *     call  tqlrat(n,w,fv2,ierr)
+             576                           call  tql1(n,w,fv1,ierr)
+             577                           go to 50
+             578                     c     .......... find both eigenvalues and eigenvectors ..........
+             579                        20 call  tred2(nm,n,a,w,fv1,z)
+             580                           call  tql2(nm,n,w,fv1,z,ierr)
+             581                        50 return
+             582                           end
+
+ Procedure information
+   Lines      : 59
+   Statements : 14
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "tql1"
+  (inc)(line-no.)(nest)(optimize)
+             583                           subroutine tql1(n,d,e,ierr)
+             584                     c
+             585                           integer i,j,l,m,n,ii,l1,l2,mml,ierr
+             586                           double precision d(n),e(n)
+             587                           double precision c,c2,c3,dl1,el1,f,g,h,p,r,s,s2,tst1,tst2,pythag
+             588                     c
+             589                     c     this subroutine is a translation of the algol procedure tql1,
+             590                     c     num. math. 11, 293-306(1968) by bowdler, martin, reinsch, and
+             591                     c     wilkinson.
+             592                     c     handbook for auto. comp., vol.ii-linear algebra, 227-240(1971).
+             593                     c
+             594                     c     this subroutine finds the eigenvalues of a symmetric
+             595                     c     tridiagonal matrix by the ql method.
+             596                     c
+             597                     c     on input
+             598                     c
+             599                     c        n is the order of the matrix.
+             600                     c
+             601                     c        d contains the diagonal elements of the input matrix.
+             602                     c
+             603                     c        e contains the subdiagonal elements of the input matrix
+             604                     c          in its last n-1 positions.  e(1) is arbitrary.
+             605                     c
+             606                     c      on output
+             607                     c
+             608                     c        d contains the eigenvalues in ascending order.  if an
+             609                     c          error exit is made, the eigenvalues are correct and
+             610                     c          ordered for indices 1,2,...ierr-1, but may not be
+             611                     c          the smallest eigenvalues.
+             612                     c
+             613                     c        e has been destroyed.
+             614                     c
+             615                     c        ierr is set to
+             616                     c          zero       for normal return,
+             617                     c          j          if the j-th eigenvalue has not been
+             618                     c                     determined after 30 iterations.
+             619                     c
+             620                     c     calls pythag for  dsqrt(a*a + b*b) .
+             621                     c
+             622                     c     questions and comments should be directed to burton s. garbow,
+             623                     c     mathematics and computer science div, argonne national laboratory
+             624                     c
+             625                     c     this version dated august 1983.
+             626                     c
+             627                     c     ------------------------------------------------------------------
+             628                     c
+             629                           ierr = 0
+             630                           if (n .eq. 1) go to 1001
+             631                     c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<< Loop-information  End >>>
+             632     1  pp   8v            do 100 i = 2, n
+             633     1   p   8v        100 e(i-1) = e(i)
+             634                     c
+             635                           f = 0.0d0
+             636                           tst1 = 0.0d0
+             637                           e(n) = 0.0d0
+             638                     c
+             639     1                     do 290 l = 1, n
+             640     1                        j = 0
+             641     1                        h = dabs(d(l)) + dabs(e(l))
+             642     1                        if (tst1 .lt. h) tst1 = h
+             643     1               c     .......... look for small sub-diagonal element ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      e: 14
+                                   <<< Loop-information  End >>>
+             644     2       8                do 110 m = l, n
+             645     2       8                   tst2 = tst1 + dabs(e(m))
+             646     2       8                   if (tst2 .eq. tst1) go to 120
+             647     2               c     .......... e(n) is always zero, so there is no exit
+             648     2               c                through the bottom of the loop ..........
+             649     2       8         110    continue
+             650     1               c
+             651     1                 120    if (m .eq. l) go to 210
+             652     1                 130    if (j .eq. 30) go to 1000
+             653     1                        j = j + 1
+             654     1               c     .......... form shift ..........
+             655     1                        l1 = l + 1
+             656     1                        l2 = l1 + 1
+             657     1                        g = d(l)
+             658     1                        p = (d(l1) - g) / (2.0d0 * e(l))
+             659     1                        r = pythag(p,1.0d0)
+             660     1                        d(l) = e(l) / (p + dsign(r,p))
+             661     1                        d(l1) = e(l) * (p + dsign(r,p))
+             662     1                        dl1 = d(l1)
+             663     1                        h = g - d(l)
+             664     1                        if (l2 .gt. n) go to 145
+             665     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             666     2  pp   8v               do 140 i = l2, n
+             667     2   p   8v        140    d(i) = d(i) - h
+             668     1               c
+             669     1                 145    f = f + h
+             670     1               c     .......... ql transformation ..........
+             671     1                        p = d(m)
+             672     1                        c = 1.0d0
+             673     1                        c2 = c
+             674     1                        el1 = e(l1)
+             675     1                        s = 0.0d0
+             676     1                        mml = m - l
+             677     1               c     .......... for i=m-1 step -1 until l do -- ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e, d
+                                   <<< Loop-information  End >>>
+             678     2   s   4s               do 200 ii = 1, mml
+             679     2   m   4s                  c3 = c2
+             680     2   s   4s                  c2 = c
+             681     2   s   4s                  s2 = s
+             682     2   s   4s                  i = m - ii
+             683     2   s   4s                  g = c * e(i)
+             684     2   s   4s                  h = c * p
+             685     2   s   4s                  r = pythag(p,e(i))
+             686     2   s   4s                  e(i+1) = s * r
+             687     2   s   4s                  s = e(i) / r
+             688     2   s   4s                  c = p / r
+             689     2   s   4s                  p = c * d(i) - s * g
+             690     2   m   4m                  d(i+1) = h + s * (c * g + s * d(i))
+             691     2   p   4v        200    continue
+             692     1               c
+             693     1                        p = -s * s2 * c3 * el1 * e(l) / dl1
+             694     1                        e(l) = s * p
+             695     1                        d(l) = c * p
+             696     1                        tst2 = tst1 + dabs(e(l))
+             697     1                        if (tst2 .gt. tst1) go to 130
+             698     1                 210    p = d(l) + f
+             699     1               c     .......... order eigenvalues ..........
+             700     1                        if (l .eq. 1) go to 250
+             701     1               c     .......... for i=l step -1 until 2 do -- ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<<    PREFETCH(SOFT) : 30
+                                   <<<     SEQUENTIAL : 30
+                                   <<<      d: 30
+                                   <<< Loop-information  End >>>
+             702     2       8                do 230 ii = 2, l
+             703     2       8                   i = l + 2 - ii
+             704     2       8                   if (p .ge. d(i-1)) go to 270
+             705     2       8                   d(i) = d(i-1)
+             706     2       8         230    continue
+             707     1               c
+             708     1                 250    i = 1
+             709     1                 270    d(i) = p
+             710     1                 290 continue
+             711                     c
+             712                           go to 1001
+             713                     c     .......... set error -- no convergence to an
+             714                     c                eigenvalue after 30 iterations ..........
+             715                      1000 ierr = l
+             716                      1001 return
+             717                           end
+
+ Diagnostic messages: program name(tql1)
+   jwd8220o-i  "netlib2.f", line 583: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "netlib2.f", line 687: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 688: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "netlib2.f", line 693: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+
+ Procedure information
+   Lines      : 135
+   Statements : 74
+   Stack(byte): 64
+   Prefetch num: 44
+
+ External subroutine subprogram "tql2"
+  (inc)(line-no.)(nest)(optimize)
+             718                           subroutine tql2(nm,n,d,e,z,ierr)
+             719                     c
+             720                           integer i,j,k,l,m,n,ii,l1,l2,nm,mml,ierr
+             721                           double precision d(n),e(n),z(nm,n)
+             722                           double precision c,c2,c3,dl1,el1,f,g,h,p,r,s,s2,tst1,tst2,pythag
+             723                     c
+             724                     c     this subroutine is a translation of the algol procedure tql2,
+             725                     c     num. math. 11, 293-306(1968) by bowdler, martin, reinsch, and
+             726                     c     wilkinson.
+             727                     c     handbook for auto. comp., vol.ii-linear algebra, 227-240(1971).
+             728                     c
+             729                     c     this subroutine finds the eigenvalues and eigenvectors
+             730                     c     of a symmetric tridiagonal matrix by the ql method.
+             731                     c     the eigenvectors of a full symmetric matrix can also
+             732                     c     be found if  tred2  has been used to reduce this
+             733                     c     full matrix to tridiagonal form.
+             734                     c
+             735                     c     on input
+             736                     c
+             737                     c        nm must be set to the row dimension of two-dimensional
+             738                     c          array parameters as declared in the calling program
+             739                     c          dimension statement.
+             740                     c
+             741                     c        n is the order of the matrix.
+             742                     c
+             743                     c        d contains the diagonal elements of the input matrix.
+             744                     c
+             745                     c        e contains the subdiagonal elements of the input matrix
+             746                     c          in its last n-1 positions.  e(1) is arbitrary.
+             747                     c
+             748                     c        z contains the transformation matrix produced in the
+             749                     c          reduction by  tred2, if performed.  if the eigenvectors
+             750                     c          of the tridiagonal matrix are desired, z must contain
+             751                     c          the identity matrix.
+             752                     c
+             753                     c      on output
+             754                     c
+             755                     c        d contains the eigenvalues in ascending order.  if an
+             756                     c          error exit is made, the eigenvalues are correct but
+             757                     c          unordered for indices 1,2,...,ierr-1.
+             758                     c
+             759                     c        e has been destroyed.
+             760                     c
+             761                     c        z contains orthonormal eigenvectors of the symmetric
+             762                     c          tridiagonal (or full) matrix.  if an error exit is made,
+             763                     c          z contains the eigenvectors associated with the stored
+             764                     c          eigenvalues.
+             765                     c
+             766                     c        ierr is set to
+             767                     c          zero       for normal return,
+             768                     c          j          if the j-th eigenvalue has not been
+             769                     c                     determined after 30 iterations.
+             770                     c
+             771                     c     calls pythag for  dsqrt(a*a + b*b) .
+             772                     c
+             773                     c     questions and comments should be directed to burton s. garbow,
+             774                     c     mathematics and computer science div, argonne national laboratory
+             775                     c
+             776                     c     this version dated august 1983.
+             777                     c
+             778                     c     ------------------------------------------------------------------
+             779                     c
+             780                           ierr = 0
+             781                           if (n .eq. 1) go to 1001
+             782                     c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<< Loop-information  End >>>
+             783     1  pp   8v            do 100 i = 2, n
+             784     1   p   8v        100 e(i-1) = e(i)
+             785                     c
+             786                           f = 0.0d0
+             787                           tst1 = 0.0d0
+             788                           e(n) = 0.0d0
+             789                     c
+             790     1                     do 240 l = 1, n
+             791     1                        j = 0
+             792     1                        h = dabs(d(l)) + dabs(e(l))
+             793     1                        if (tst1 .lt. h) tst1 = h
+             794     1               c     .......... look for small sub-diagonal element ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      e: 14
+                                   <<< Loop-information  End >>>
+             795     2       8                do 110 m = l, n
+             796     2       8                   tst2 = tst1 + dabs(e(m))
+             797     2       8                   if (tst2 .eq. tst1) go to 120
+             798     2               c     .......... e(n) is always zero, so there is no exit
+             799     2               c                through the bottom of the loop ..........
+             800     2       8         110    continue
+             801     1               c
+             802     1                 120    if (m .eq. l) go to 220
+             803     1                 130    if (j .eq. 30) go to 1000
+             804     1                        j = j + 1
+             805     1               c     .......... form shift ..........
+             806     1                        l1 = l + 1
+             807     1                        l2 = l1 + 1
+             808     1                        g = d(l)
+             809     1                        p = (d(l1) - g) / (2.0d0 * e(l))
+             810     1                        r = pythag(p,1.0d0)
+             811     1                        d(l) = e(l) / (p + dsign(r,p))
+             812     1                        d(l1) = e(l) * (p + dsign(r,p))
+             813     1                        dl1 = d(l1)
+             814     1                        h = g - d(l)
+             815     1                        if (l2 .gt. n) go to 145
+             816     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             817     2  pp   8v               do 140 i = l2, n
+             818     2   p   8v        140    d(i) = d(i) - h
+             819     1               c
+             820     1                 145    f = f + h
+             821     1               c     .......... ql transformation ..........
+             822     1                        p = d(m)
+             823     1                        c = 1.0d0
+             824     1                        c2 = c
+             825     1                        el1 = e(l1)
+             826     1                        s = 0.0d0
+             827     1                        mml = m - l
+             828     1               c     .......... for i=m-1 step -1 until l do -- ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z
+                                   <<< Loop-information  End >>>
+             829     2                        do 200 ii = 1, mml
+             830     2                           c3 = c2
+             831     2                           c2 = c
+             832     2                           s2 = s
+             833     2                           i = m - ii
+             834     2                           g = c * e(i)
+             835     2                           h = c * p
+             836     2                           r = pythag(p,e(i))
+             837     2                           e(i+1) = s * r
+             838     2                           s = e(i) / r
+             839     2                           c = p / r
+             840     2                           p = c * d(i) - s * g
+             841     2                           d(i+1) = h + s * (c * g + s * d(i))
+             842     2               c     .......... form vector ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 640
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z
+                                   <<< Loop-information  End >>>
+             843     3  pp   6v                  do 180 k = 1, n
+             844     3   p   6v                     h = z(k,i+1)
+             845     3   p   6v                     z(k,i+1) = s * z(k,i) + c * h
+             846     3   p   6v                     z(k,i) = c * z(k,i) - s * h
+             847     3   p   6v        180       continue
+             848     2               c
+             849     2                 200    continue
+             850     1               c
+             851     1                        p = -s * s2 * c3 * el1 * e(l) / dl1
+             852     1                        e(l) = s * p
+             853     1                        d(l) = c * p
+             854     1                        tst2 = tst1 + dabs(e(l))
+             855     1                        if (tst2 .gt. tst1) go to 130
+             856     1                 220    d(l) = d(l) + f
+             857     1                 240 continue
+             858                     c     .......... order eigenvalues and eigenvectors ..........
+             859     1                     do 300 ii = 2, n
+             860     1                        i = ii - 1
+             861     1                        k = i
+             862     1                        p = d(i)
+             863     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             864     2  pp   8s               do 260 j = ii, n
+             865     2   p   8v                  if (d(j) .ge. p) go to 260
+             866     2   p   8s                  k = j
+             867     2   p   8s                  p = d(j)
+             868     2   p   8s        260    continue
+             869     1               c
+             870     1                        if (k .eq. i) go to 300
+             871     1                        d(k) = d(i)
+             872     1                        d(i) = p
+             873     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z
+                                   <<< Loop-information  End >>>
+             874     2  pp   8v               do 280 j = 1, n
+             875     2   p   8v                  p = z(j,i)
+             876     2   p   8v                  z(j,i) = z(j,k)
+             877     2   p   8v                  z(j,k) = p
+             878     2   p   8v        280    continue
+             879     1               c
+             880     1                 300 continue
+             881                     c
+             882                           go to 1001
+             883                     c     .......... set error -- no convergence to an
+             884                     c                eigenvalue after 30 iterations ..........
+             885                      1000 ierr = l
+             886                      1001 return
+             887                           end
+
+ Diagnostic messages: program name(tql2)
+   jwd8220o-i  "netlib2.f", line 718: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "netlib2.f", line 838: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "netlib2.f", line 839: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "netlib2.f", line 851: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+
+ Procedure information
+   Lines      : 170
+   Statements : 89
+   Stack(byte): 16544
+   Prefetch num: 14
+
+ External subroutine subprogram "tred1"
+  (inc)(line-no.)(nest)(optimize)
+             888                           subroutine tred1(nm,n,a,d,e,e2)
+             889                     c
+             890                           integer i,j,k,l,n,ii,nm,jp1
+             891                           double precision a(nm,n),d(n),e(n),e2(n)
+             892                           double precision f,g,h,scale
+             893                     c
+             894                     c     this subroutine is a translation of the algol procedure tred1,
+             895                     c     num. math. 11, 181-195(1968) by martin, reinsch, and wilkinson.
+             896                     c     handbook for auto. comp., vol.ii-linear algebra, 212-226(1971).
+             897                     c
+             898                     c     this subroutine reduces a real symmetric matrix
+             899                     c     to a symmetric tridiagonal matrix using
+             900                     c     orthogonal similarity transformations.
+             901                     c
+             902                     c     on input
+             903                     c
+             904                     c        nm must be set to the row dimension of two-dimensional
+             905                     c          array parameters as declared in the calling program
+             906                     c          dimension statement.
+             907                     c
+             908                     c        n is the order of the matrix.
+             909                     c
+             910                     c        a contains the real symmetric input matrix.  only the
+             911                     c          lower triangle of the matrix need be supplied.
+             912                     c
+             913                     c     on output
+             914                     c
+             915                     c        a contains information about the orthogonal trans-
+             916                     c          formations used in the reduction in its strict lower
+             917                     c          triangle.  the full upper triangle of a is unaltered.
+             918                     c
+             919                     c        d contains the diagonal elements of the tridiagonal matrix.
+             920                     c
+             921                     c        e contains the subdiagonal elements of the tridiagonal
+             922                     c          matrix in its last n-1 positions.  e(1) is set to zero.
+             923                     c
+             924                     c        e2 contains the squares of the corresponding elements of e.
+             925                     c          e2 may coincide with e if the squares are not needed.
+             926                     c
+             927                     c     questions and comments should be directed to burton s. garbow,
+             928                     c     mathematics and computer science div, argonne national laboratory
+             929                     c
+             930                     c     this version dated august 1983.
+             931                     c
+             932                     c     ------------------------------------------------------------------
+             933                     c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 762
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             934     1  pp   6v            do 100 i = 1, n
+             935     1   p   6v               d(i) = a(n,i)
+             936     1   p   6v               a(n,i) = a(i,i)
+             937     1   p   6v        100 continue
+             938                     c     .......... for i=n step -1 until 1 do -- ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, (unknown)
+                                   <<< Loop-information  End >>>
+             939     1                     do 300 ii = 1, n
+             940     1                        i = n + 1 - ii
+             941     1                        l = i - 1
+             942     1                        h = 0.0d0
+             943     1                        scale = 0.0d0
+             944     1                        if (l .lt. 1) go to 130
+             945     1               c     .......... scale row (algol tol then not needed) ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             946     2  pp   8v               do 120 k = 1, l
+             947     2   p   8v        120    scale = scale + dabs(d(k))
+             948     1               c
+             949     1                        if (scale .ne. 0.0d0) go to 140
+             950     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 667
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             951     2  pp   4v               do 125 j = 1, l
+             952     2   p   4v                  d(j) = a(l,j)
+             953     2   p   4v                  a(l,j) = a(i,j)
+             954     2   p   4v                  a(i,j) = 0.0d0
+             955     2   p   4v        125    continue
+             956     1               c
+             957     1                 130    e(i) = 0.0d0
+             958     1                        e2(i) = 0.0d0
+             959     1                        go to 300
+             960     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+             961     2  pp   8v        140    do 150 k = 1, l
+             962     2   p   8v                  d(k) = d(k) / scale
+             963     2   p   8v                  h = h + d(k) * d(k)
+             964     2   p   8v        150    continue
+             965     1               c
+             966     1                        e2(i) = scale * scale * h
+             967     1                        f = d(l)
+             968     1                        g = -dsign(dsqrt(h),f)
+             969     1                        e(i) = scale * g
+             970     1                        h = h - f * g
+             971     1                        d(l) = f - g
+             972     1                        if (l .eq. 1) go to 285
+             973     1               c     .......... form a*u ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<< Loop-information  End >>>
+             974     2  pp   8v               do 170 j = 1, l
+             975     2   p   8v        170    e(j) = 0.0d0
+             976     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a, e, d, (unknown)
+                                   <<< Loop-information  End >>>
+             977     2                        do 240 j = 1, l
+             978     2                           f = d(j)
+             979     2                           g = e(j) + a(j,j) * f
+             980     2                           jp1 = j + 1
+             981     2                           if (l .lt. jp1) go to 220
+             982     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 728
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e, a, d
+                                   <<< Loop-information  End >>>
+             983     3  pp   8v                  do 200 k = jp1, l
+             984     3   p   8v                     g = g + a(k,j) * d(k)
+             985     3   p   8v                     e(k) = e(k) + a(k,j) * f
+             986     3   p   8v        200       continue
+             987     2               c
+             988     2                 220       e(j) = g
+             989     2                 240    continue
+             990     1               c     .......... form p ..........
+             991     1                        f = 0.0d0
+             992     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, e
+                                   <<< Loop-information  End >>>
+             993     2  pp   8v               do 245 j = 1, l
+             994     2   p   8v                  e(j) = e(j) / h
+             995     2   p   8v                  f = f + e(j) * d(j)
+             996     2   p   8v        245    continue
+             997     1               c
+             998     1                        h = f / (h + h)
+             999     1               c     .......... form q ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e, d
+                                   <<< Loop-information  End >>>
+            1000     2  pp   8v               do 250 j = 1, l
+            1001     2   p   8v        250    e(j) = e(j) - h * d(j)
+            1002     1               c     .......... form reduced a ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, e, a
+                                   <<< Loop-information  End >>>
+            1003     2  pp                    do 280 j = 1, l
+            1004     2   p                       f = d(j)
+            1005     2   p                       g = e(j)
+            1006     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a, d, e
+                                   <<< Loop-information  End >>>
+            1007     3   p   8v                  do 260 k = j, l
+            1008     3   p   8v        260       a(k,j) = a(k,j) - f * e(k) - g * d(k)
+            1009     2               c
+            1010     2   p             280    continue
+            1011     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 572
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+            1012     2  pp   4v        285    do 290 j = 1, l
+            1013     2   p   4v                  f = d(j)
+            1014     2   p   4v                  d(j) = a(l,j)
+            1015     2   p   4v                  a(l,j) = a(i,j)
+            1016     2   p   4v                  a(i,j) = f * scale
+            1017     2   p   4v        290    continue
+            1018     1               c
+            1019     1                 300 continue
+            1020                     c
+            1021                           return
+            1022                           end
+
+ Diagnostic messages: program name(tred1)
+   jwd8220o-i  "netlib2.f", line 888: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8208o-i  "netlib2.f", line 947: Method of calculating sum or product is changed.
+   jwd8206o-i  "netlib2.f", line 962: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "netlib2.f", line 963: Method of calculating sum or product is changed.
+   jwd8208o-i  "netlib2.f", line 984: Method of calculating sum or product is changed.
+   jwd8206o-i  "netlib2.f", line 994: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "netlib2.f", line 995: Method of calculating sum or product is changed.
+   jwd8209o-i  "netlib2.f", line 1007: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "netlib2.f", line 1008: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+
+ Procedure information
+   Lines      : 135
+   Statements : 72
+   Stack(byte): 33936
+   Prefetch num: 0
+
+ External subroutine subprogram "tred2"
+  (inc)(line-no.)(nest)(optimize)
+            1023                           subroutine tred2(nm,n,a,d,e,z)
+            1024                     c
+            1025                           integer i,j,k,l,n,ii,nm,jp1
+            1026                           double precision a(nm,n),d(n),e(n),z(nm,n)
+            1027                           double precision f,g,h,hh,scale
+            1028                     c
+            1029                     c     this subroutine is a translation of the algol procedure tred2,
+            1030                     c     num. math. 11, 181-195(1968) by martin, reinsch, and wilkinson.
+            1031                     c     handbook for auto. comp., vol.ii-linear algebra, 212-226(1971).
+            1032                     c
+            1033                     c     this subroutine reduces a real symmetric matrix to a
+            1034                     c     symmetric tridiagonal matrix using and accumulating
+            1035                     c     orthogonal similarity transformations.
+            1036                     c
+            1037                     c     on input
+            1038                     c
+            1039                     c        nm must be set to the row dimension of two-dimensional
+            1040                     c          array parameters as declared in the calling program
+            1041                     c          dimension statement.
+            1042                     c
+            1043                     c        n is the order of the matrix.
+            1044                     c
+            1045                     c        a contains the real symmetric input matrix.  only the
+            1046                     c          lower triangle of the matrix need be supplied.
+            1047                     c
+            1048                     c     on output
+            1049                     c
+            1050                     c        d contains the diagonal elements of the tridiagonal matrix.
+            1051                     c
+            1052                     c        e contains the subdiagonal elements of the tridiagonal
+            1053                     c          matrix in its last n-1 positions.  e(1) is set to zero.
+            1054                     c
+            1055                     c        z contains the orthogonal transformation matrix
+            1056                     c          produced in the reduction.
+            1057                     c
+            1058                     c        a and z may coincide.  if distinct, a is unaltered.
+            1059                     c
+            1060                     c     questions and comments should be directed to burton s. garbow,
+            1061                     c     mathematics and computer science div, argonne national laboratory
+            1062                     c
+            1063                     c     this version dated august 1983.
+            1064                     c
+            1065                     c     ------------------------------------------------------------------
+            1066                     c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 4
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, a, z
+                                   <<< Loop-information  End >>>
+            1067     1  pp                 do 100 i = 1, n
+            1068     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a, z
+                                   <<< Loop-information  End >>>
+            1069     2   p   8v               do 80 j = i, n
+            1070     2   p   8v         80    z(j,i) = a(j,i)
+            1071     1               c
+            1072     1   p                    d(i) = a(n,i)
+            1073     1   p             100 continue
+            1074                     c
+            1075                           if (n .eq. 1) go to 510
+            1076                     c     .......... for i=n step -1 until 2 do -- ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, z, (unknown)
+                                   <<< Loop-information  End >>>
+            1077     1                     do 300 ii = 2, n
+            1078     1                        i = n + 2 - ii
+            1079     1                        l = i - 1
+            1080     1                        h = 0.0d0
+            1081     1                        scale = 0.0d0
+            1082     1                        if (l .lt. 2) go to 130
+            1083     1               c     .......... scale row (algol tol then not needed) ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+            1084     2  pp   8v               do 120 k = 1, l
+            1085     2   p   8v        120    scale = scale + dabs(d(k))
+            1086     1               c
+            1087     1                        if (scale .ne. 0.0d0) go to 140
+            1088     1                 130    e(i) = d(l)
+            1089     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 728
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, d
+                                   <<< Loop-information  End >>>
+            1090     2  pp   6v               do 135 j = 1, l
+            1091     2   p   6v                  d(j) = z(l,j)
+            1092     2   p   6v                  z(i,j) = 0.0d0
+            1093     2   p   6v                  z(j,i) = 0.0d0
+            1094     2   p   6v        135    continue
+            1095     1               c
+            1096     1                        go to 290
+            1097     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+            1098     2  pp   8v        140    do 150 k = 1, l
+            1099     2   p   8v                  d(k) = d(k) / scale
+            1100     2   p   8v                  h = h + d(k) * d(k)
+            1101     2   p   8v        150    continue
+            1102     1               c
+            1103     1                        f = d(l)
+            1104     1                        g = -dsign(dsqrt(h),f)
+            1105     1                        e(i) = scale * g
+            1106     1                        h = h - f * g
+            1107     1                        d(l) = f - g
+            1108     1               c     .......... form a*u ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e
+                                   <<< Loop-information  End >>>
+            1109     2  pp   8v               do 170 j = 1, l
+            1110     2   p   8v        170    e(j) = 0.0d0
+            1111     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, e, d, (unknown)
+                                   <<< Loop-information  End >>>
+            1112     2                        do 240 j = 1, l
+            1113     2                           f = d(j)
+            1114     2                           z(j,i) = f
+            1115     2                           g = e(j) + z(j,j) * f
+            1116     2                           jp1 = j + 1
+            1117     2                           if (l .lt. jp1) go to 220
+            1118     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 728
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e, z, d
+                                   <<< Loop-information  End >>>
+            1119     3  pp   8v                  do 200 k = jp1, l
+            1120     3   p   8v                     g = g + z(k,j) * d(k)
+            1121     3   p   8v                     e(k) = e(k) + z(k,j) * f
+            1122     3   p   8v        200       continue
+            1123     2               c
+            1124     2                 220       e(j) = g
+            1125     2                 240    continue
+            1126     1               c     .......... form p ..........
+            1127     1                        f = 0.0d0
+            1128     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, e
+                                   <<< Loop-information  End >>>
+            1129     2  pp   8v               do 245 j = 1, l
+            1130     2   p   8v                  e(j) = e(j) / h
+            1131     2   p   8v                  f = f + e(j) * d(j)
+            1132     2   p   8v        245    continue
+            1133     1               c
+            1134     1                        hh = f / (h + h)
+            1135     1               c     .......... form q ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      e, d
+                                   <<< Loop-information  End >>>
+            1136     2  pp   8v               do 250 j = 1, l
+            1137     2   p   8v        250    e(j) = e(j) - hh * d(j)
+            1138     1               c     .......... form reduced a ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, e, z
+                                   <<< Loop-information  End >>>
+            1139     2                        do 280 j = 1, l
+            1140     2                           f = d(j)
+            1141     2                           g = e(j)
+            1142     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 696
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, d, e
+                                   <<< Loop-information  End >>>
+            1143     3  pp   8v                  do 260 k = j, l
+            1144     3   p   8v        260       z(k,j) = z(k,j) - f * e(k) - g * d(k)
+            1145     2               c
+            1146     2                           d(j) = z(l,j)
+            1147     2                           z(i,j) = 0.0d0
+            1148     2                 280    continue
+            1149     1               c
+            1150     1                 290    d(i) = h
+            1151     1                 300 continue
+            1152                     c     .......... accumulation of transformation matrices ..........
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, d
+                                   <<< Loop-information  End >>>
+            1153     1                     do 500 i = 2, n
+            1154     1                        l = i - 1
+            1155     1                        z(n,l) = z(l,l)
+            1156     1                        z(l,l) = 1.0d0
+            1157     1                        h = d(i)
+            1158     1                        if (h .eq. 0.0d0) go to 380
+            1159     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d, z
+                                   <<< Loop-information  End >>>
+            1160     2  pp   8v               do 330 k = 1, l
+            1161     2   p   8v        330    d(k) = z(k,i) / h
+            1162     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, d
+                                   <<< Loop-information  End >>>
+            1163     2  pp                    do 360 j = 1, l
+            1164     2   p                       g = 0.0d0
+            1165     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z
+                                   <<< Loop-information  End >>>
+            1166     3   p   8v                  do 340 k = 1, l
+            1167     3   p   8v        340       g = g + z(k,i) * z(k,j)
+            1168     2               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 889
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z, d
+                                   <<< Loop-information  End >>>
+            1169     3  pp   8v                  do 360 k = 1, l
+            1170     3   p   8v                     z(k,j) = z(k,j) - g * d(k)
+            1171     2   p   8v        360    continue
+            1172     1               c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      z
+                                   <<< Loop-information  End >>>
+            1173     2  pp   8v        380    do 400 k = 1, l
+            1174     2   p   8v        400    z(k,i) = 0.0d0
+            1175     1               c
+            1176     1                 500 continue
+            1177                     c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      d
+                                   <<< Loop-information  End >>>
+            1178     1  pp   6v        510 do 520 i = 1, n
+            1179     1   p   6v               d(i) = z(n,i)
+            1180     1   p   6v               z(n,i) = 0.0d0
+            1181     1   p   6v        520 continue
+            1182                     c
+            1183                           z(n,n) = 1.0d0
+            1184                           e(1) = 0.0d0
+            1185                           return
+            1186                           end
+
+ Diagnostic messages: program name(tred2)
+   jwd8220o-i  "netlib2.f", line 1023: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8208o-i  "netlib2.f", line 1085: Method of calculating sum or product is changed.
+   jwd8206o-i  "netlib2.f", line 1099: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "netlib2.f", line 1100: Method of calculating sum or product is changed.
+   jwd8208o-i  "netlib2.f", line 1120: Method of calculating sum or product is changed.
+   jwd8206o-i  "netlib2.f", line 1130: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "netlib2.f", line 1131: Method of calculating sum or product is changed.
+   jwd8209o-i  "netlib2.f", line 1143: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "netlib2.f", line 1144: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "netlib2.f", line 1161: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "netlib2.f", line 1167: Method of calculating sum or product is changed.
+
+ Procedure information
+   Lines      : 164
+   Statements : 93
+   Stack(byte): 33904
+   Prefetch num: 0
+
+ External subroutine subprogram "daxpy"
+  (inc)(line-no.)(nest)(optimize)
+            1187                           subroutine daxpy(n,da,dx,incx,dy,incy)
+            1188                     c
+            1189                     c     constant times a vector plus a vector.
+            1190                     c     uses unrolled loops for increments equal to one.
+            1191                     c     jack dongarra, linpack, 3/11/78.
+            1192                     c     modified 12/3/93, array(1) declarations changed to array(*)
+            1193                     c
+            1194                           double precision dx(*),dy(*),da
+            1195                           integer i,incx,incy,ix,iy,m,mp1,n
+            1196                     c
+            1197                           if(n.le.0)return
+            1198                           if (da .eq. 0.0d0) return
+            1199                           if(incx.eq.1.and.incy.eq.1)go to 20
+            1200                     c
+            1201                     c        code for unequal increments or equal increments
+            1202                     c          not equal to 1
+            1203                     c
+            1204                           ix = 1
+            1205                           iy = 1
+            1206                           if(incx.lt.0)ix = (-n+1)*incx + 1
+            1207                           if(incy.lt.0)iy = (-n+1)*incy + 1
+            1208     1   s   8s            do 10 i = 1,n
+            1209     1   m   8m              dy(iy) = dy(iy) + da*dx(ix)
+            1210     1   p   8v              ix = ix + incx
+            1211     1   p   8v              iy = iy + incy
+            1212     1   p   8v         10 continue
+            1213                           return
+            1214                     c
+            1215                     c        code for both increments equal to 1
+            1216                     c
+            1217                     c
+            1218                     c        clean-up loop
+            1219                     c
+            1220                        20 m = mod(n,4)
+            1221                           if( m .eq. 0 ) go to 40
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dy, dx
+                                   <<< Loop-information  End >>>
+            1222     1  pp   8v            do 30 i = 1,m
+            1223     1   p   8v              dy(i) = dy(i) + da*dx(i)
+            1224     1   p   8v         30 continue
+            1225                           if( n .lt. 4 ) return
+            1226                        40 mp1 = m + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 320
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dx, dy
+                                   <<< Loop-information  End >>>
+            1227     1  pp   4v            do 50 i = mp1,n,4
+            1228     1   p   4v              dy(i) = dy(i) + da*dx(i)
+            1229     1   p   4v              dy(i + 1) = dy(i + 1) + da*dx(i + 1)
+            1230     1   p   4v              dy(i + 2) = dy(i + 2) + da*dx(i + 2)
+            1231     1   p   4v              dy(i + 3) = dy(i + 3) + da*dx(i + 3)
+            1232     1   p   4v         50 continue
+            1233                           return
+            1234                           end
+
+ Procedure information
+   Lines      : 48
+   Statements : 31
+   Stack(byte): 80
+   Prefetch num: 0
+
+ External subroutine subprogram "dcopy"
+  (inc)(line-no.)(nest)(optimize)
+            1235                           subroutine  dcopy(n,dx,incx,dy,incy)
+            1236                     c
+            1237                     c     copies a vector, x, to a vector, y.
+            1238                     c     uses unrolled loops for increments equal to one.
+            1239                     c     jack dongarra, linpack, 3/11/78.
+            1240                     c     modified 12/3/93, array(1) declarations changed to array(*)
+            1241                     c
+            1242                           double precision dx(*),dy(*)
+            1243                           integer i,incx,incy,ix,iy,m,mp1,n
+            1244                     c
+            1245                           if(n.le.0)return
+            1246                           if(incx.eq.1.and.incy.eq.1)go to 20
+            1247                     c
+            1248                     c        code for unequal increments or equal increments
+            1249                     c          not equal to 1
+            1250                     c
+            1251                           ix = 1
+            1252                           iy = 1
+            1253                           if(incx.lt.0)ix = (-n+1)*incx + 1
+            1254                           if(incy.lt.0)iy = (-n+1)*incy + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+            1255     1   s   6v            do 10 i = 1,n
+            1256     1   s   6v              dy(iy) = dx(ix)
+            1257     1   s   6v              ix = ix + incx
+            1258     1   s   6v              iy = iy + incy
+            1259     1   s   6v         10 continue
+            1260                           return
+            1261                     c
+            1262                     c        code for both increments equal to 1
+            1263                     c
+            1264                     c
+            1265                     c        clean-up loop
+            1266                     c
+            1267                        20 m = mod(n,7)
+            1268                           if( m .eq. 0 ) go to 40
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dx, dy
+                                   <<< Loop-information  End >>>
+            1269     1  pp   8v            do 30 i = 1,m
+            1270     1   p   8v              dy(i) = dx(i)
+            1271     1   p   8v         30 continue
+            1272                           if( n .lt. 7 ) return
+            1273                        40 mp1 = m + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dy, dx
+                                   <<< Loop-information  End >>>
+            1274     1  pp   4v            do 50 i = mp1,n,7
+            1275     1   p   4v              dy(i) = dx(i)
+            1276     1   p   4v              dy(i + 1) = dx(i + 1)
+            1277     1   p   4v              dy(i + 2) = dx(i + 2)
+            1278     1   p   4v              dy(i + 3) = dx(i + 3)
+            1279     1   p   4v              dy(i + 4) = dx(i + 4)
+            1280     1   p   4v              dy(i + 5) = dx(i + 5)
+            1281     1   p   4v              dy(i + 6) = dx(i + 6)
+            1282     1   p   4v         50 continue
+            1283                           return
+            1284                           end
+
+ Procedure information
+   Lines      : 50
+   Statements : 33
+   Stack(byte): 144
+   Prefetch num: 0
+
+ External function subprogram "ddot"
+  (inc)(line-no.)(nest)(optimize)
+            1285                           double precision function ddot(n,dx,incx,dy,incy)
+            1286                     c
+            1287                     c     forms the dot product of two vectors.
+            1288                     c     uses unrolled loops for increments equal to one.
+            1289                     c     jack dongarra, linpack, 3/11/78.
+            1290                     c     modified 12/3/93, array(1) declarations changed to array(*)
+            1291                     c
+            1292                           double precision dx(*),dy(*),dtemp
+            1293                           integer i,incx,incy,ix,iy,m,mp1,n
+            1294                     c
+            1295                           ddot = 0.0d0
+            1296                           dtemp = 0.0d0
+            1297                           if(n.le.0)return
+            1298                           if(incx.eq.1.and.incy.eq.1)go to 20
+            1299                     c
+            1300                     c        code for unequal increments or equal increments
+            1301                     c          not equal to 1
+            1302                     c
+            1303                           ix = 1
+            1304                           iy = 1
+            1305                           if(incx.lt.0)ix = (-n+1)*incx + 1
+            1306                           if(incy.lt.0)iy = (-n+1)*incy + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+            1307     1  pp   6v            do 10 i = 1,n
+            1308     1   p   6v              dtemp = dtemp + dx(ix)*dy(iy)
+            1309     1   p   6v              ix = ix + incx
+            1310     1   p   6v              iy = iy + incy
+            1311     1   p   6v         10 continue
+            1312                           ddot = dtemp
+            1313                           return
+            1314                     c
+            1315                     c        code for both increments equal to 1
+            1316                     c
+            1317                     c
+            1318                     c        clean-up loop
+            1319                     c
+            1320                        20 m = mod(n,5)
+            1321                           if( m .eq. 0 ) go to 40
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dy, dx
+                                   <<< Loop-information  End >>>
+            1322     1  pp   8v            do 30 i = 1,m
+            1323     1   p   8v              dtemp = dtemp + dx(i)*dy(i)
+            1324     1   p   8v         30 continue
+            1325                           if( n .lt. 5 ) go to 60
+            1326                        40 mp1 = m + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 356
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dy, dx
+                                   <<< Loop-information  End >>>
+            1327     1  pp   4v            do 50 i = mp1,n,5
+            1328     1   p   4v              dtemp = dtemp + dx(i)*dy(i) + dx(i + 1)*dy(i + 1) +
+            1329     1                    *   dx(i + 2)*dy(i + 2) + dx(i + 3)*dy(i + 3) + dx(i + 4)*dy(i + 4)
+            1330     1   p   4v         50 continue
+            1331                        60 ddot = dtemp
+            1332                           return
+            1333                           end
+
+ Diagnostic messages: program name(ddot)
+   jwd8220o-i  "netlib2.f", line 1285: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8208o-i  "netlib2.f", line 1310: Method of calculating sum or product is changed.
+   jwd8208o-i  "netlib2.f", line 1323: Method of calculating sum or product is changed.
+   jwd8209o-i  "netlib2.f", line 1328: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "netlib2.f", line 1328: Method of calculating sum or product is changed.
+
+ Procedure information
+   Lines      : 49
+   Statements : 31
+   Stack(byte): 25248
+   Prefetch num: 0
+
+ External subroutine subprogram "dswap"
+  (inc)(line-no.)(nest)(optimize)
+            1334                           subroutine  dswap (n,dx,incx,dy,incy)
+            1335                     c
+            1336                     c     interchanges two vectors.
+            1337                     c     uses unrolled loops for increments equal one.
+            1338                     c     jack dongarra, linpack, 3/11/78.
+            1339                     c     modified 12/3/93, array(1) declarations changed to array(*)
+            1340                     c
+            1341                           double precision dx(*),dy(*),dtemp
+            1342                           integer i,incx,incy,ix,iy,m,mp1,n
+            1343                     c
+            1344                           if(n.le.0)return
+            1345                           if(incx.eq.1.and.incy.eq.1)go to 20
+            1346                     c
+            1347                     c       code for unequal increments or equal increments not equal
+            1348                     c         to 1
+            1349                     c
+            1350                           ix = 1
+            1351                           iy = 1
+            1352                           if(incx.lt.0)ix = (-n+1)*incx + 1
+            1353                           if(incy.lt.0)iy = (-n+1)*incy + 1
+            1354     1   s   8s            do 10 i = 1,n
+            1355     1   s   8s              dtemp = dx(ix)
+            1356     1   s   8s              dx(ix) = dy(iy)
+            1357     1   s   8s              dy(iy) = dtemp
+            1358     1   s   8s              ix = ix + incx
+            1359     1   s   8s              iy = iy + incy
+            1360     1   s   8s         10 continue
+            1361                           return
+            1362                     c
+            1363                     c       code for both increments equal to 1
+            1364                     c
+            1365                     c
+            1366                     c       clean-up loop
+            1367                     c
+            1368                        20 m = mod(n,3)
+            1369                           if( m .eq. 0 ) go to 40
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 889
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dx, dy
+                                   <<< Loop-information  End >>>
+            1370     1  pp   8v            do 30 i = 1,m
+            1371     1   p   8v              dtemp = dx(i)
+            1372     1   p   8v              dx(i) = dy(i)
+            1373     1   p   8v              dy(i) = dtemp
+            1374     1   p   8v         30 continue
+            1375                           if( n .lt. 3 ) return
+            1376                        40 mp1 = m + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 381
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dy, dx
+                                   <<< Loop-information  End >>>
+            1377     1  pp   4v            do 50 i = mp1,n,3
+            1378     1   p   4v              dtemp = dx(i)
+            1379     1   p   4v              dx(i) = dy(i)
+            1380     1   p   4v              dy(i) = dtemp
+            1381     1   p   4v              dtemp = dx(i + 1)
+            1382     1   p   4v              dx(i + 1) = dy(i + 1)
+            1383     1   p   4v              dy(i + 1) = dtemp
+            1384     1   p   4v              dtemp = dx(i + 2)
+            1385     1   p   4v              dx(i + 2) = dy(i + 2)
+            1386     1   p   4v              dy(i + 2) = dtemp
+            1387     1   p   4v         50 continue
+            1388                           return
+            1389                           end
+
+ Procedure information
+   Lines      : 56
+   Statements : 39
+   Stack(byte): 64
+   Prefetch num: 0
+
+ External function subprogram "idamax"
+  (inc)(line-no.)(nest)(optimize)
+            1390                           integer function idamax(n,dx,incx)
+            1391                     c
+            1392                     c     finds the index of element having max. absolute value.
+            1393                     c     jack dongarra, linpack, 3/11/78.
+            1394                     c     modified 3/93 to return if incx .le. 0.
+            1395                     c     modified 12/3/93, array(1) declarations changed to array(*)
+            1396                     c
+            1397                           double precision dx(*),dmax
+            1398                           integer i,incx,ix,n
+            1399                     c
+            1400                           idamax = 0
+            1401                           if( n.lt.1 .or. incx.le.0 ) return
+            1402                           idamax = 1
+            1403                           if(n.eq.1)return
+            1404                           if(incx.eq.1)go to 20
+            1405                     c
+            1406                     c        code for increment not equal to 1
+            1407                     c
+            1408                           ix = 1
+            1409                           dmax = dabs(dx(1))
+            1410                           ix = ix + incx
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 889
+                                   <<< Loop-information  End >>>
+            1411     1  pp   8s            do 10 i = 2,n
+            1412     1   p   8v               if(dabs(dx(ix)).le.dmax) go to 5
+            1413     1   p   8m               idamax = i
+            1414     1   p   8s               dmax = dabs(dx(ix))
+            1415     1   p   8v          5    ix = ix + incx
+            1416     1   p   8m         10 continue
+            1417                           return
+            1418                     c
+            1419                     c        code for increment equal to 1
+            1420                     c
+            1421                        20 dmax = dabs(dx(1))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dx
+                                   <<< Loop-information  End >>>
+            1422     1  pp   8s            do 30 i = 2,n
+            1423     1   p   8v               if(dabs(dx(i)).le.dmax) go to 30
+            1424     1   p   8m               idamax = i
+            1425     1   p   8s               dmax = dabs(dx(i))
+            1426     1   p   8m         30 continue
+            1427                           return
+            1428                           end
+
+ Procedure information
+   Lines      : 39
+   Statements : 26
+   Stack(byte): 32864
+   Prefetch num: 0
+
+ External subroutine subprogram "DGEMM"
+  (inc)(line-no.)(nest)(optimize)
+            1429                           SUBROUTINE DGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+            1430                     *     .. Scalar Arguments ..
+            1431                           DOUBLE PRECISION ALPHA,BETA
+            1432                           INTEGER K,LDA,LDB,LDC,M,N
+            1433                           CHARACTER TRANSA,TRANSB
+            1434                     *     ..
+            1435                     *     .. Array Arguments ..
+            1436                           DOUBLE PRECISION A(LDA,*),B(LDB,*),C(LDC,*)
+            1437                     *     ..
+            1438                     *
+            1439                     *  Purpose
+            1440                     *  =======
+            1441                     *
+            1442                     *  DGEMM  performs one of the matrix-matrix operations
+            1443                     *
+            1444                     *     C := alpha*op( A )*op( B ) + beta*C,
+            1445                     *
+            1446                     *  where  op( X ) is one of
+            1447                     *
+            1448                     *     op( X ) = X   or   op( X ) = X',
+            1449                     *
+            1450                     *  alpha and beta are scalars, and A, B and C are matrices, with op( A )
+            1451                     *  an m by k matrix,  op( B )  a  k by n matrix and  C an m by n matrix.
+            1452                     *
+            1453                     *  Arguments
+            1454                     *  ==========
+            1455                     *
+            1456                     *  TRANSA - CHARACTER*1.
+            1457                     *           On entry, TRANSA specifies the form of op( A ) to be used in
+            1458                     *           the matrix multiplication as follows:
+            1459                     *
+            1460                     *              TRANSA = 'N' or 'n',  op( A ) = A.
+            1461                     *
+            1462                     *              TRANSA = 'T' or 't',  op( A ) = A'.
+            1463                     *
+            1464                     *              TRANSA = 'C' or 'c',  op( A ) = A'.
+            1465                     *
+            1466                     *           Unchanged on exit.
+            1467                     *
+            1468                     *  TRANSB - CHARACTER*1.
+            1469                     *           On entry, TRANSB specifies the form of op( B ) to be used in
+            1470                     *           the matrix multiplication as follows:
+            1471                     *
+            1472                     *              TRANSB = 'N' or 'n',  op( B ) = B.
+            1473                     *
+            1474                     *              TRANSB = 'T' or 't',  op( B ) = B'.
+            1475                     *
+            1476                     *              TRANSB = 'C' or 'c',  op( B ) = B'.
+            1477                     *
+            1478                     *           Unchanged on exit.
+            1479                     *
+            1480                     *  M      - INTEGER.
+            1481                     *           On entry,  M  specifies  the number  of rows  of the  matrix
+            1482                     *           op( A )  and of the  matrix  C.  M  must  be at least  zero.
+            1483                     *           Unchanged on exit.
+            1484                     *
+            1485                     *  N      - INTEGER.
+            1486                     *           On entry,  N  specifies the number  of columns of the matrix
+            1487                     *           op( B ) and the number of columns of the matrix C. N must be
+            1488                     *           at least zero.
+            1489                     *           Unchanged on exit.
+            1490                     *
+            1491                     *  K      - INTEGER.
+            1492                     *           On entry,  K  specifies  the number of columns of the matrix
+            1493                     *           op( A ) and the number of rows of the matrix op( B ). K must
+            1494                     *           be at least  zero.
+            1495                     *           Unchanged on exit.
+            1496                     *
+            1497                     *  ALPHA  - DOUBLE PRECISION.
+            1498                     *           On entry, ALPHA specifies the scalar alpha.
+            1499                     *           Unchanged on exit.
+            1500                     *
+            1501                     *  A      - DOUBLE PRECISION array of DIMENSION ( LDA, ka ), where ka is
+            1502                     *           k  when  TRANSA = 'N' or 'n',  and is  m  otherwise.
+            1503                     *           Before entry with  TRANSA = 'N' or 'n',  the leading  m by k
+            1504                     *           part of the array  A  must contain the matrix  A,  otherwise
+            1505                     *           the leading  k by m  part of the array  A  must contain  the
+            1506                     *           matrix A.
+            1507                     *           Unchanged on exit.
+            1508                     *
+            1509                     *  LDA    - INTEGER.
+            1510                     *           On entry, LDA specifies the first dimension of A as declared
+            1511                     *           in the calling (sub) program. When  TRANSA = 'N' or 'n' then
+            1512                     *           LDA must be at least  max( 1, m ), otherwise  LDA must be at
+            1513                     *           least  max( 1, k ).
+            1514                     *           Unchanged on exit.
+            1515                     *
+            1516                     *  B      - DOUBLE PRECISION array of DIMENSION ( LDB, kb ), where kb is
+            1517                     *           n  when  TRANSB = 'N' or 'n',  and is  k  otherwise.
+            1518                     *           Before entry with  TRANSB = 'N' or 'n',  the leading  k by n
+            1519                     *           part of the array  B  must contain the matrix  B,  otherwise
+            1520                     *           the leading  n by k  part of the array  B  must contain  the
+            1521                     *           matrix B.
+            1522                     *           Unchanged on exit.
+            1523                     *
+            1524                     *  LDB    - INTEGER.
+            1525                     *           On entry, LDB specifies the first dimension of B as declared
+            1526                     *           in the calling (sub) program. When  TRANSB = 'N' or 'n' then
+            1527                     *           LDB must be at least  max( 1, k ), otherwise  LDB must be at
+            1528                     *           least  max( 1, n ).
+            1529                     *           Unchanged on exit.
+            1530                     *
+            1531                     *  BETA   - DOUBLE PRECISION.
+            1532                     *           On entry,  BETA  specifies the scalar  beta.  When  BETA  is
+            1533                     *           supplied as zero then C need not be set on input.
+            1534                     *           Unchanged on exit.
+            1535                     *
+            1536                     *  C      - DOUBLE PRECISION array of DIMENSION ( LDC, n ).
+            1537                     *           Before entry, the leading  m by n  part of the array  C must
+            1538                     *           contain the matrix  C,  except when  beta  is zero, in which
+            1539                     *           case C need not be set on entry.
+            1540                     *           On exit, the array  C  is overwritten by the  m by n  matrix
+            1541                     *           ( alpha*op( A )*op( B ) + beta*C ).
+            1542                     *
+            1543                     *  LDC    - INTEGER.
+            1544                     *           On entry, LDC specifies the first dimension of C as declared
+            1545                     *           in  the  calling  (sub)  program.   LDC  must  be  at  least
+            1546                     *           max( 1, m ).
+            1547                     *           Unchanged on exit.
+            1548                     *
+            1549                     *
+            1550                     *  Level 3 Blas routine.
+            1551                     *
+            1552                     *  -- Written on 8-February-1989.
+            1553                     *     Jack Dongarra, Argonne National Laboratory.
+            1554                     *     Iain Duff, AERE Harwell.
+            1555                     *     Jeremy Du Croz, Numerical Algorithms Group Ltd.
+            1556                     *     Sven Hammarling, Numerical Algorithms Group Ltd.
+            1557                     *
+            1558                     *
+            1559                     *     .. External Functions ..
+            1560                           LOGICAL LSAME
+            1561                           EXTERNAL LSAME
+            1562                     *     ..
+            1563                     *     .. External Subroutines ..
+            1564                           EXTERNAL XERBLA
+            1565                     *     ..
+            1566                     *     .. Intrinsic Functions ..
+            1567                           INTRINSIC MAX
+            1568                     *     ..
+            1569                     *     .. Local Scalars ..
+            1570                           DOUBLE PRECISION TEMP
+            1571                           INTEGER I,INFO,J,L,NCOLA,NROWA,NROWB
+            1572                           LOGICAL NOTA,NOTB
+            1573                     *     ..
+            1574                     *     .. Parameters ..
+            1575                           DOUBLE PRECISION ONE,ZERO
+            1576                           PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+            1577                     *     ..
+            1578                     *
+            1579                     *     Set  NOTA  and  NOTB  as  true if  A  and  B  respectively are not
+            1580                     *     transposed and set  NROWA, NCOLA and  NROWB  as the number of rows
+            1581                     *     and  columns of  A  and the  number of  rows  of  B  respectively.
+            1582                     *
+            1583                           NOTA = LSAME(TRANSA,'N')
+            1584                           NOTB = LSAME(TRANSB,'N')
+            1585     1                     IF (NOTA) THEN
+            1586     1                         NROWA = M
+            1587     1                         NCOLA = K
+            1588     1                     ELSE
+            1589     1                         NROWA = K
+            1590     1                         NCOLA = M
+            1591     1                     END IF
+            1592     1                     IF (NOTB) THEN
+            1593     1                         NROWB = K
+            1594     1                     ELSE
+            1595     1                         NROWB = N
+            1596     1                     END IF
+            1597                     *
+            1598                     *     Test the input parameters.
+            1599                     *
+            1600                           INFO = 0
+            1601     1                     IF ((.NOT.NOTA) .AND. (.NOT.LSAME(TRANSA,'C')) .AND.
+            1602     1                    +    (.NOT.LSAME(TRANSA,'T'))) THEN
+            1603     1                         INFO = 1
+            1604     1                     ELSE IF ((.NOT.NOTB) .AND. (.NOT.LSAME(TRANSB,'C')) .AND.
+            1605     1                    +         (.NOT.LSAME(TRANSB,'T'))) THEN
+            1606     1                         INFO = 2
+            1607     1                     ELSE IF (M.LT.0) THEN
+            1608     1                         INFO = 3
+            1609     1                     ELSE IF (N.LT.0) THEN
+            1610     1                         INFO = 4
+            1611     1                     ELSE IF (K.LT.0) THEN
+            1612     1                         INFO = 5
+            1613     1                     ELSE IF (LDA.LT.MAX(1,NROWA)) THEN
+            1614     1                         INFO = 8
+            1615     1                     ELSE IF (LDB.LT.MAX(1,NROWB)) THEN
+            1616     1                         INFO = 10
+            1617     1                     ELSE IF (LDC.LT.MAX(1,M)) THEN
+            1618     1                         INFO = 13
+            1619     1                     END IF
+            1620     1                     IF (INFO.NE.0) THEN
+            1621     1                         CALL XERBLA('DGEMM ',INFO)
+            1622     1                         RETURN
+            1623     1                     END IF
+            1624                     *
+            1625                     *     Quick return if possible.
+            1626                     *
+            1627                           IF ((M.EQ.0) .OR. (N.EQ.0) .OR.
+            1628                          +    (((ALPHA.EQ.ZERO).OR. (K.EQ.0)).AND. (BETA.EQ.ONE))) RETURN
+            1629                     *
+            1630                     *     And if  alpha.eq.zero.
+            1631                     *
+            1632     1                     IF (ALPHA.EQ.ZERO) THEN
+            1633     2                         IF (BETA.EQ.ZERO) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<< Loop-information  End >>>
+            1634     3  pp                         DO 20 J = 1,N
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1635     4  pp   8v                        DO 10 I = 1,M
+            1636     4   p   8v                            C(I,J) = ZERO
+            1637     4   p   8v         10             CONTINUE
+            1638     3   p              20         CONTINUE
+            1639     2                         ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 4
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1640     3  pp                         DO 40 J = 1,N
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 667
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1641     4  pp   8v                        DO 30 I = 1,M
+            1642     4   p   8v                            C(I,J) = BETA*C(I,J)
+            1643     4   p   8v         30             CONTINUE
+            1644     3   p              40         CONTINUE
+            1645     2                         END IF
+            1646     1                         RETURN
+            1647     1                     END IF
+            1648                     *
+            1649                     *     Start the operations.
+            1650                     *
+            1651     1                     IF (NOTB) THEN
+            1652     2                         IF (NOTA) THEN
+            1653     2               *
+            1654     2               *           Form  C := alpha*A*B + beta*C.
+            1655     2               *
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1656     3  pp                         DO 90 J = 1,N
+            1657     4   p                             IF (BETA.EQ.ZERO) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1658     5  pp   8v                            DO 50 I = 1,M
+            1659     5   p   8v                                C(I,J) = ZERO
+            1660     5   p   8v         50                 CONTINUE
+            1661     4   p                             ELSE IF (BETA.NE.ONE) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1662     5  pp   8v                            DO 60 I = 1,M
+            1663     5   p   8v                                C(I,J) = BETA*C(I,J)
+            1664     5   p   8v         60                 CONTINUE
+            1665     4   p                             END IF
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      B, A, C
+                                   <<< Loop-information  End >>>
+            1666     4   p                             DO 80 L = 1,K
+            1667     5   p                                 IF (B(L,J).NE.ZERO) THEN
+            1668     5   p                                     TEMP = ALPHA*B(L,J)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C, A
+                                   <<< Loop-information  End >>>
+            1669     6  pp   8v                                DO 70 I = 1,M
+            1670     6   p   8v                                    C(I,J) = C(I,J) + TEMP*A(I,L)
+            1671     6   p   8v         70                     CONTINUE
+            1672     5   p                                 END IF
+            1673     4   p              80             CONTINUE
+            1674     3   p              90         CONTINUE
+            1675     2                         ELSE
+            1676     2               *
+            1677     2               *           Form  C := alpha*A'*B + beta*C
+            1678     2               *
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+            1679     3  pp                         DO 120 J = 1,N
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      A, B
+                                   <<<    PREFETCH(SOFT) : 6
+                                   <<<     SEQUENTIAL : 6
+                                   <<<      C: 6
+                                   <<< Loop-information  End >>>
+            1680     4  pp                             DO 110 I = 1,M
+            1681     4   p                                 TEMP = ZERO
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      B, A
+                                   <<< Loop-information  End >>>
+            1682     5   p   8v                            DO 100 L = 1,K
+            1683     5   p   8v                                TEMP = TEMP + A(L,I)*B(L,J)
+            1684     5   p   8v        100                 CONTINUE
+            1685     5   p                                 IF (BETA.EQ.ZERO) THEN
+            1686     5   p                                     C(I,J) = ALPHA*TEMP
+            1687     5   p                                 ELSE
+            1688     5   p                                     C(I,J) = ALPHA*TEMP + BETA*C(I,J)
+            1689     5   p                                 END IF
+            1690     4   p             110             CONTINUE
+            1691     3   p             120         CONTINUE
+            1692     2                         END IF
+            1693     1                     ELSE
+            1694     2                         IF (NOTA) THEN
+            1695     2               *
+            1696     2               *           Form  C := alpha*A*B' + beta*C
+            1697     2               *
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1698     3  pp                         DO 170 J = 1,N
+            1699     4   p                             IF (BETA.EQ.ZERO) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1700     5  pp   8v                            DO 130 I = 1,M
+            1701     5   p   8v                                C(I,J) = ZERO
+            1702     5   p   8v        130                 CONTINUE
+            1703     4   p                             ELSE IF (BETA.NE.ONE) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C
+                                   <<< Loop-information  End >>>
+            1704     5  pp   8v                            DO 140 I = 1,M
+            1705     5   p   8v                                C(I,J) = BETA*C(I,J)
+            1706     5   p   8v        140                 CONTINUE
+            1707     4   p                             END IF
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      A, C
+                                   <<< Loop-information  End >>>
+            1708     4   p                             DO 160 L = 1,K
+            1709     5   p                                 IF (B(J,L).NE.ZERO) THEN
+            1710     5   p                                     TEMP = ALPHA*B(J,L)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      C, A
+                                   <<< Loop-information  End >>>
+            1711     6  pp   8v                                DO 150 I = 1,M
+            1712     6   p   8v                                    C(I,J) = C(I,J) + TEMP*A(I,L)
+            1713     6   p   8v        150                     CONTINUE
+            1714     5   p                                 END IF
+            1715     4   p             160             CONTINUE
+            1716     3   p             170         CONTINUE
+            1717     2                         ELSE
+            1718     2               *
+            1719     2               *           Form  C := alpha*A'*B' + beta*C
+            1720     2               *
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+            1721     3  pp                         DO 200 J = 1,N
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      A
+                                   <<<    PREFETCH(SOFT) : 6
+                                   <<<     SEQUENTIAL : 6
+                                   <<<      C: 6
+                                   <<< Loop-information  End >>>
+            1722     4  pp                             DO 190 I = 1,M
+            1723     4   p                                 TEMP = ZERO
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      A
+                                   <<< Loop-information  End >>>
+            1724     5   p   8v                            DO 180 L = 1,K
+            1725     5   p   8v                                TEMP = TEMP + A(L,I)*B(J,L)
+            1726     5   p   8v        180                 CONTINUE
+            1727     5   p                                 IF (BETA.EQ.ZERO) THEN
+            1728     5   p                                     C(I,J) = ALPHA*TEMP
+            1729     5   p                                 ELSE
+            1730     5   p                                     C(I,J) = ALPHA*TEMP + BETA*C(I,J)
+            1731     5   p                                 END IF
+            1732     4   p             190             CONTINUE
+            1733     3   p             200         CONTINUE
+            1734     2                         END IF
+            1735     1                     END IF
+            1736                     *
+            1737                           RETURN
+            1738                     *
+            1739                     *     End of DGEMM .
+            1740                     *
+            1741                           END
+
+ Diagnostic messages: program name(DGEMM)
+   jwd8220o-i  "netlib2.f", line 1429: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8208o-i  "netlib2.f", line 1683: Method of calculating sum or product is changed.
+   jwd8208o-i  "netlib2.f", line 1725: Method of calculating sum or product is changed.
+
+ Procedure information
+   Lines      : 313
+   Statements : 142
+   Stack(byte): 544
+   Prefetch num: 12
+
+ External function subprogram "LSAME"
+  (inc)(line-no.)(nest)(optimize)
+            1742                           LOGICAL          FUNCTION LSAME( CA, CB )
+            1743                     ****************************************************************************
+            1744                     *                                                                          *
+            1745                     *   DATA PARALLEL BLAS based on MPL                                        *
+            1746                     *                                                                          *
+            1747                     *   Version 1.0   1/9-92 ,                                                 *
+            1748                     *   For MasPar MP-1 computers                                              *
+            1749                     *                                                                          *
+            1750                     *   para//ab, University of Bergen, NORWAY                                 *
+            1751                     *                                                                          *
+            1752                     *   These programs must be called using F90 style array syntax.            *
+            1753                     *   Note that the F77 style calling sequence has been retained             *
+            1754                     *   in this version for compatibility reasons, be aware that               *
+            1755                     *   parameters related to the array dimensions and shape therefore may     *
+            1756                     *   be redundant and without any influence.                                *
+            1757                     *   The calling sequence may be changed in a future version.               *
+            1758                     *   Please report any BUGs, ideas for improvement or other                 *
+            1759                     *   comments to                                                            *
+            1760                     *                    adm@parallab.uib.no                                   *
+            1761                     *                                                                          *
+            1762                     *   Future versions may then reflect your suggestions.                     *
+            1763                     *   The most current version of this software is available                 *
+            1764                     *   from netlib@nac.no , send the message `send index from maspar'         *
+            1765                     *                                                                          *
+            1766                     *   REVISIONS:                                                             *
+            1767                     *                                                                          *
+            1768                     ****************************************************************************
+            1769                     *
+            1770                     *  -- LAPACK auxiliary routine (preliminary version) --
+            1771                     *     Univ. of Tennessee, Oak Ridge National Lab, Argonne National Lab,
+            1772                     *     Courant Institute, NAG Ltd., and Rice University
+            1773                     *     March 26, 1990
+            1774                     *
+            1775                     *     .. Scalar Arguments ..
+            1776                           CHARACTER          CA, CB
+            1777                     *     ..
+            1778                     *
+            1779                     *  Purpose
+            1780                     *  =======
+            1781                     *
+            1782                     *  LSAME returns .TRUE. if CA is the same letter as CB regardless of
+            1783                     *  case.
+            1784                     *
+            1785                     *  This version of the routine is only correct for ASCII code.
+            1786                     *  Installers must modify the routine for other character-codes.
+            1787                     *
+            1788                     *  For EBCDIC systems the constant IOFF must be changed to -64.
+            1789                     *  For CDC systems using 6-12 bit representations, the system-
+            1790                     *  specific code in comments must be activated.
+            1791                     *
+            1792                     *  Arguments
+            1793                     *  =========
+            1794                     *
+            1795                     *  CA      (input) CHARACTER*1
+            1796                     *  CB      (input) CHARACTER*1
+            1797                     *          CA and CB specify the single characters to be compared.
+            1798                     *
+            1799                     *
+            1800                     *     .. Parameters ..
+            1801                           INTEGER            IOFF
+            1802                           PARAMETER        ( IOFF = 32 )
+            1803                     *     ..
+            1804                     *     .. Intrinsic Functions ..
+            1805                           INTRINSIC          ICHAR
+            1806                     *     ..
+            1807                     *     .. Executable Statements ..
+            1808                     *
+            1809                     *     Test if the characters are equal
+            1810                     *
+            1811                           LSAME = CA.EQ.CB
+            1812                     *
+            1813                     *     Now test for equivalence
+            1814                     *
+            1815     1                     IF( .NOT.LSAME ) THEN
+            1816     1                        LSAME = ICHAR( CA ) - IOFF.EQ.ICHAR( CB )
+            1817     1                     END IF
+            1818     1                     IF( .NOT.LSAME ) THEN
+            1819     1                        LSAME = ICHAR( CA ).EQ.ICHAR( CB ) - IOFF
+            1820     1                     END IF
+            1821                     *
+            1822                           RETURN
+            1823                     *
+            1824                     *  The following comments contain code for CDC systems using 6-12 bit
+            1825                     *  representations.
+            1826                     *
+            1827                     *     .. Parameters ..
+            1828                     *     INTEGER            ICIRFX
+            1829                     *     PARAMETER        ( ICIRFX=62 )
+            1830                     *     .. Scalar arguments ..
+            1831                     *     CHARACTER*1        CB
+            1832                     *     .. Array arguments ..
+            1833                     *     CHARACTER*1        CA(*)
+            1834                     *     .. Local scalars ..
+            1835                     *     INTEGER            IVAL
+            1836                     *     .. Intrinsic functions ..
+            1837                     *     INTRINSIC          ICHAR, CHAR
+            1838                     *     .. Executable statements ..
+            1839                     *
+            1840                     *     See if the first character in string CA equals string CB.
+            1841                     *
+            1842                     *     LSAME = CA(1) .EQ. CB .AND. CA(1) .NE. CHAR(ICIRFX)
+            1843                     *
+            1844                     *     IF (LSAME) RETURN
+            1845                     *
+            1846                     *     The characters are not identical. Now check them for equivalence.
+            1847                     *     Look for the 'escape' character, circumflex, followed by the
+            1848                     *     letter.
+            1849                     *
+            1850                     *     IVAL = ICHAR(CA(2))
+            1851                     *     IF (IVAL.GE.ICHAR('A') .AND. IVAL.LE.ICHAR('Z')) THEN
+            1852                     *        LSAME = CA(1) .EQ. CHAR(ICIRFX) .AND. CA(2) .EQ. CB
+            1853                     *     END IF
+            1854                     *
+            1855                     *     RETURN
+            1856                     *
+            1857                     *     End of LSAME
+            1858                     *
+            1859                           END
+
+ Procedure information
+   Lines      : 118
+   Statements : 14
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "XERBLA"
+  (inc)(line-no.)(nest)(optimize)
+            1860                           SUBROUTINE XERBLA( SRNAME, INFO )
+            1861                     ****************************************************************************
+            1862                     *                                                                          *
+            1863                     *   DATA PARALLEL BLAS based on MPL                                        *
+            1864                     *                                                                          *
+            1865                     *   Version 1.0   1/9-92 ,                                                 *
+            1866                     *   For MasPar MP-1 computers                                              *
+            1867                     *                                                                          *
+            1868                     *   para//ab, University of Bergen, NORWAY                                 *
+            1869                     *                                                                          *
+            1870                     *   These programs must be called using F90 style array syntax.            *
+            1871                     *   Note that the F77 style calling sequence has been retained             *
+            1872                     *   in this version for compatibility reasons, be aware that               *
+            1873                     *   parameters related to the array dimensions and shape therefore may     *
+            1874                     *   be redundant and without any influence.                                *
+            1875                     *   The calling sequence may be changed in a future version.               *
+            1876                     *   Please report any BUGs, ideas for improvement or other                 *
+            1877                     *   comments to                                                            *
+            1878                     *                    adm@parallab.uib.no                                   *
+            1879                     *                                                                          *
+            1880                     *   Future versions may then reflect your suggestions.                     *
+            1881                     *   The most current version of this software is available                 *
+            1882                     *   from netlib@nac.no , send the message `send index from maspar'         *
+            1883                     *                                                                          *
+            1884                     *   REVISIONS:                                                             *
+            1885                     *                                                                          *
+            1886                     ****************************************************************************
+            1887                     *
+            1888                     *  -- LAPACK auxiliary routine (preliminary version) --
+            1889                     *     Univ. of Tennessee, Oak Ridge National Lab, Argonne National Lab,
+            1890                     *     Courant Institute, NAG Ltd., and Rice University
+            1891                     *     March 26, 1990
+            1892                     *
+            1893                     *     .. Scalar Arguments ..
+            1894                           CHARACTER*6        SRNAME
+            1895                           INTEGER            INFO
+            1896                     *     ..
+            1897                     *
+            1898                     *  Purpose
+            1899                     *  =======
+            1900                     *
+            1901                     *  XERBLA  is an error handler for the LAPACK routines.
+            1902                     *  It is called by an LAPACK routine if an input parameter has an
+            1903                     *  invalid value.  A message is printed and execution stops.
+            1904                     *
+            1905                     *  Installers may consider modifying the STOP statement in order to
+            1906                     *  call system-specific exception-handling facilities.
+            1907                     *
+            1908                     *  Arguments
+            1909                     *  =========
+            1910                     *
+            1911                     *  SRNAME  (input) CHARACTER*6
+            1912                     *          The name of the routine which called XERBLA.
+            1913                     *
+            1914                     *  INFO    (input) INTEGER
+            1915                     *          The position of the invalid parameter in the parameter list
+            1916                     *          of the calling routine.
+            1917                     *
+            1918                     *
+            1919                           WRITE( *, FMT = 9999 )SRNAME, INFO
+            1920                     *
+            1921                           STOP
+            1922                     *
+            1923                      9999 FORMAT( ' ** On entry to ', A6, ' parameter number ', I2, ' had ',
+            1924                          $      'an illegal value' )
+            1925                     *
+            1926                     *     End of XERBLA
+            1927                     *
+            1928                           END
+
+ Procedure information
+   Lines      : 69
+   Statements : 7
+   Stack(byte): 16
+   Prefetch num: 0
+
+ Total information
+   Procedures       : 16
+   Total lines      : 1928
+   Total statements : 973
+   Total stack(byte): 143456
+   Total prefetch num: 70
+

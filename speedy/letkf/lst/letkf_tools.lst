@@ -1,0 +1,2185 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:56:01 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : letkf_tools.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "letkf_tools"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE letkf_tools
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Module for LETKF with SPEEDY
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   01/26/2009 Takemasa Miyoshi  created
+               8                     !
+               9                     !=======================================================================
+              10                       USE common
+              11                       USE common_mpi
+              12                       USE common_time
+              13                       USE common_speedy
+              14                       USE common_mpi_speedy
+              15                       USE common_letkf
+              16                       USE common_lpf
+              17                       USE letkf_obs
+              18                       USE interpolate
+              19                     
+              20                       IMPLICIT NONE
+              21                     
+              22                       PRIVATE
+              23                       PUBLIC ::  das_letkf
+              24                     
+              25                       INTEGER,SAVE :: nobstotal
+              26                     
+              27                       REAL(r_size),PARAMETER :: cov_infl_mul = -1.01d0 !multiplicative inflation
+              28                     ! > 0: globally constant covariance inflation
+              29                     ! < 0: 3D inflation values input from a GPV file "infl_mul.grd"
+              30                       REAL(r_size),PARAMETER :: sp_infl_add = 0.d0 !additive inflation
+              31                     !TVS  LOGICAL,PARAMETER :: msw_vbc = .FALSE.
+              32                       REAL(r_size),PARAMETER :: var_local(nv3d+nv2d,nid_obs) = RESHAPE( &
+              33                     !           U      V      T      Q     PS   RAIN
+              34                        & (/ 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! U
+              35                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! V
+              36                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! T
+              37                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! Q
+              38                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! RH
+              39                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0,  & ! PS
+              40                        &    1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0, 1.0d0 /)& ! RAIN
+              41                        & ,(/nv3d+nv2d,nid_obs/))
+              42                       INTEGER,SAVE :: var_local_n2n(nv3d+nv2d)
+              43                     
+              44                     CONTAINS
+              45                     !-----------------------------------------------------------------------
+              46                     ! Data Assimilation
+              47                     !-----------------------------------------------------------------------
+              48                     SUBROUTINE das_letkf(gues3d,gues2d,anal3d,anal2d)
+              49                       IMPLICIT NONE
+              50                       CHARACTER(12) :: inflfile='infl_mul.grd'
+              51                       CHARACTER(29) :: wvecfile='./wvec/yyyymmddhh_MXXXXXX.grd'             !-->A.P 6/6/2018 weight vec grd file
+              52                       CHARACTER(25) :: inflfile_i='./infl_mul/yyyymmddhh.grd'
+              53                       CHARACTER(25) :: inflfile_o='./infl_mul/yyyymmddhh.grd'
+              54                       REAL(r_size),INTENT(INOUT) :: gues3d(nij1,nlev,nbv,nv3d) ! background ensemble
+              55                       REAL(r_size),INTENT(INOUT) :: gues2d(nij1,nbv,nv2d)      !  output: destroyed
+              56                       REAL(r_size),INTENT(OUT) :: anal3d(nij1,nlev,nbv,nv3d)   ! analysis ensemble
+              57                       REAL(r_size),INTENT(OUT) :: anal2d(nij1,nbv,nv2d)
+              58                       REAL(r_size),ALLOCATABLE :: mean3d(:,:,:)
+              59                       REAL(r_size),ALLOCATABLE :: mean2d(:,:)
+              60                       REAL(r_size),ALLOCATABLE :: hdxf(:,:)
+              61                       REAL(r_size),ALLOCATABLE :: rdiag(:)
+              62                       REAL(r_size),ALLOCATABLE :: rloc(:)
+              63                       REAL(r_size),ALLOCATABLE :: dep(:)
+              64                       REAL(r_size),ALLOCATABLE :: work3d(:,:,:)
+              65                       REAL(r_size),ALLOCATABLE :: work2d(:,:)
+              66                       REAL(r_sngl),ALLOCATABLE :: work3dg(:,:,:,:)
+              67                       REAL(r_sngl),ALLOCATABLE :: work2dg(:,:,:)
+              68                       REAL(r_size),ALLOCATABLE :: logpfm(:,:)
+              69                       REAL(r_size) :: parm
+              70                       REAL(r_size) :: trans(nbv,nbv,nv3d+nv2d)
+              71                       LOGICAL :: ex
+              72                       INTEGER :: ij,ilev,n,m,i,j,k,nobsl,ierr
+              73                     
+              74                     
+              75                       !==> LPF ; SK 20190420
+              76                       LOGICAL      :: logic_lpfgm = .false.
+              77                       INTEGER      :: iseed
+              78                       REAL(r_size) :: srand(nbv)
+              79                       REAL(r_size) :: gr_common(nbv,nbv)            , Ident(nbv,nbv)
+              80                       REAL(r_size) :: nobs3d(nij1,nlev,nv3d)        , nobs2d(nij1,nv2d)
+              81                       REAL(r_size) :: wvec3d(nij1,nlev,nv3d,nbv)    , wvec2d(nij1,nv2d,nbv)
+              82                       REAL(r_size) :: wmat3d(nij1,nlev,nv3d,nbv,nbv), wmat2d(nij1,nv2d,nbv,nbv)
+              83                       REAL(r_size) :: pvec3d(nij1,nlev,nv3d,nbv)    , pvec2d(nij1,nv2d,nbv)
+              84                       REAL(r_size) :: pmat3d(nij1,nlev,nv3d,nbv,nbv), pmat2d(nij1,nv2d,nbv,nbv)
+              85                     
+              86                       REAL(r_size) :: asis3d(nij1,nlev,nv3d,nbv)    , asis2d(nij1,nv2d,nbv)
+              87                       REAL(r_size) :: peff3d(nij1,nlev,nv3d)        , peff2d(nij1,nv2d)
+              88                       REAL(r_size) :: rsmp3d(nij1,nlev,nv3d)        , rsmp2d(nij1,nv2d)
+              89                       CHARACTER(25) :: pefffile_o='./peff_lpf/yyyymmddhh.grd'
+              90                       CHARACTER(25) :: rsmpfile_o='./rsmp_lpf/yyyymmddhh.grd'
+              91                       CHARACTER(33) :: asisfile_o='./asis_lpf/yyyymmddhh_MXXXXXX.grd'
+              92                     
+              93                       !==> Weight Smoother
+              94                       REAL(r_size) :: sigma_g, distg, dist_zerog, sfnc, swgh
+              95                       REAL(r_size) :: wgh_nij2map(nij1,nlon,nlat)
+              96                     
+              97                       !==> Weight Interpolation
+              98                       INTEGER              :: iprocs, iexe, nexe, ilon, ilat
+              99                       INTEGER, ALLOCATABLE :: proc_m(:,:)
+             100                     
+             101                       REAL(r_size) :: trans3(nbv,nbv)
+             102                       REAL(r_size) :: trans2(nbv,nbv)
+             103                       REAL(r_size) :: msk(nlon,nlat),   msk_me(nij1)
+             104                       REAL(r_size) :: wix(nlon,nlat,4), wix_me(nij1,4)
+             105                       REAL(r_size) :: wiy(nlon,nlat,4), wiy_me(nij1,4)
+             106                       REAL(r_size) :: fac(nlon,nlat,4), fac_me(nij1,4)
+             107                       REAL(r_size) :: tmpave, tmpinf, tmpptb(nbv), gusspr, anlspr
+             108                     
+             109                     !
+             110                       ltimer00 = MPI_WTIME() ; ltimer01 = ltimer00
+             111                       ptimer00 = MPI_WTIME() ; ptimer01 = ptimer00
+             112                       ptimer   = ptimer00
+             113                     !
+             114                       WRITE(6,'(A)') 'Hello from das_letkf'
+             115                       nobstotal = nobs !+ ntvs
+             116                       WRITE(6,'(A,I8)') 'Target observation numbers : NOBS=',nobs!,', NTVS=',ntvs
+             117                       !
+             118                       ! identity matrix
+             119                       !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      Ident
+                                   <<< Loop-information  End >>>
+             120        pp   8v        Ident(:,:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             121     1  pp   8m        DO k=1,nbv ; Ident(k,k) = 1.0d0 ; END DO
+             122                       !SK,NO-WI;20200417!!
+             123                       !SK,NO-WI;20200417!! gauss weight preparation for filtering
+             124                       !SK,NO-WI;20200417!!
+             125                       !SK,NO-WI;20200417!IF( logic_wsth )THEN
+             126                       !SK,NO-WI;20200417!  sigma_g            = sigma_obs * 1.0d0
+             127                       !SK,NO-WI;20200417!  dist_zerog         = sigma_g * SQRT(10.0d0/3.0d0) * 2.0d0
+             128                       !SK,NO-WI;20200417!  wgh_nij2map(:,:,:) = 0.0d0
+             129                       !SK,NO-WI;20200417!  DO ij=1,nij1 ; DO j=1,nlat ; DO i=1,nlon
+             130                       !SK,NO-WI;20200417!    CALL com_distll_1(lon1(ij),lat1(ij),lon(i),lat(j),distg)
+             131                       !SK,NO-WI;20200417!    IF( distg < dist_zerog ) &
+             132                       !SK,NO-WI;20200417!      wgh_nij2map(ij,i,j) = EXP(-0.5d0 * ((distg/sigma_g)**2) )
+             133                       !SK,NO-WI;20200417!  END DO       ; END DO      ; END DO
+             134                       !SK,NO-WI;20200417!END IF
+             135                       !
+             136                       ! preparation for member parallerization
+             137                       !
+             138                       !===> setting for parallel computing
+             139     1                 IF( MOD(nbv,nprocs) /= 0 ) THEN
+             140     1                   print *, "error, nbv should be devided by the nprocs"
+             141     1                   STOP ; ENDIF
+             142                     
+             143                       nexe = nbv / nprocs
+             144                       allocate ( proc_m(0:nprocs-1,nexe) ) ; proc_m(:,:) = -999
+             145                     
+             146                       iprocs = -1 ; iexe  = 1
+             147     1                 DO m=1,nbv
+             148     1                   iprocs = iprocs + 1
+             149     2                   IF( iprocs == nprocs ) THEN
+             150     2                     iprocs = 0
+             151     2                     iexe   = iexe + 1
+             152     2                   ENDIF
+             153     1                   proc_m(iprocs,iexe)    = m
+             154     1                 END DO
+             155                       !!DO iexe=1,nexe
+             156                       !!  PRINT '(3i)', iexe, myrank,proc_m(myrank,iexe)
+             157                       !!END DO
+             158                     
+             159                       !
+             160                       ! In case of no obs
+             161                       !
+             162     1                 IF(nobstotal == 0) THEN
+             163     1                   WRITE(6,'(A)') 'No observation assimilated'
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gues3d, anal3d, (unknown)
+                                   <<< Loop-information  End >>>
+             164     1  pp   8v          anal3d = gues3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gues2d, anal2d, (unknown)
+                                   <<< Loop-information  End >>>
+             165     1  pp   8v          anal2d = gues2d
+             166     1                   RETURN
+             167     1                 END IF
+             168                       !
+             169                       ! Variable localization
+             170                       !
+             171                       var_local_n2n(1) = 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 2
+                                   <<<     SEQUENTIAL : 2
+                                   <<<      (unknown): 2
+                                   <<< Loop-information  End >>>
+             172     1  pp             DO n=2,nv3d+nv2d
+             173     2   p               DO i=1,n
+             174     2   p                 var_local_n2n(n) = i
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             175     2   p    v            IF(MAXVAL(ABS(var_local(i,:)-var_local(n,:))) < TINY(var_local)) EXIT
+             176     2   p               END DO
+             177     1   p             END DO
+             178                     !print *,var_local_n2n
+             179                       !
+             180                       ! FCST PERTURBATIONS
+             181                       !
+             182                       ALLOCATE(mean3d(nij1,nlev,nv3d))
+             183                       ALLOCATE(mean2d(nij1,nv2d))
+             184                       CALL ensmean_grd(nbv,nij1,gues3d,gues2d,mean3d,mean2d)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             185     1  pp             DO n=1,nv3d
+             186     2   p               DO m=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gues3d, mean3d, (unknown)
+                                   <<< Loop-information  End >>>
+             187     3   p                 DO k=1,nlev
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      mean3d, gues3d, (unknown)
+                                   <<< Loop-information  End >>>
+             188     4   p   8v              DO i=1,nij1
+             189     4   p   8v                gues3d(i,k,m,n) = gues3d(i,k,m,n) - mean3d(i,k,n)
+             190     4   p   8v              END DO
+             191     3   p                 END DO
+             192     2   p               END DO
+             193     1   p             END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             194     1  pp             DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gues2d, mean2d, (unknown)
+                                   <<< Loop-information  End >>>
+             195     2   p               DO m=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      mean2d, gues2d, (unknown)
+                                   <<< Loop-information  End >>>
+             196     3   p   8v            DO i=1,nij1
+             197     3   p   8v              gues2d(i,m,n) = gues2d(i,m,n) - mean2d(i,n)
+             198     3   p   8v            END DO
+             199     2   p               END DO
+             200     1   p             END DO
+             201                       !
+             202                       ! random noises for resampling (Roland et al., 2018; MWR)
+             203                       !
+             204     1                 IF( dastype >= 1 .and. type_pfmtx==0 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gr_common
+                                   <<< Loop-information  End >>>
+             205     1  pp   8v          gr_common(:,:) = 0.0d0
+             206     2                   IF( myrank == 0 )THEN
+             207     3   s    s            DO k=1,nbv
+             208     3   s    s              CALL com_randn(nbv,gr_common(:,k))
+             209     3   s    s            END DO
+             210     2                   END IF
+             211     1                   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             212     1                   CALL MPI_BCAST (gr_common,nbv*nbv,MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD,ierr) !! share random numbers for resampling
+             213     1                 END IF
+             214                       !
+             215                       ! likelihood succession for local particle filter
+             216                       !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis3d, asis2d, (unknown)
+                                   <<< Loop-information  End >>>
+             217        pp   8v        asis3d = 1.0d0/dble(nbv)  ;  asis2d = 1.0d0/dble(nbv)
+             218     1                 IF( fgt_factor<1.0d0 )THEN
+             219     1                   !==> each member for SIS (need to save all member)
+             220     1                   WRITE(wvecfile,'(a7,i10.10,a2,i6.6,a4)') './asis_lpf/',pymdh,'_M',1,'.grd'
+             221     1                   INQUIRE(FILE=wvecfile,EXIST=ex)
+             222     2                   IF( ex )THEN
+             223     2                     ALLOCATE( work3dg(nlon,nlat,nlev,nv3d), work3d(nij1,nlev,nv3d) )
+             224     2                     ALLOCATE( work2dg(nlon,nlat,nv2d)     , work2d(nij1,nv2d)      )
+             225     3                     DO m=1,nbv
+             226     4                       IF(myrank == 0) THEN
+             227     4                         WRITE(wvecfile,'(a7,i10.10,a2,i6.6,a4)') './asis_lpf/',pymdh,'_M',m,'.grd'
+             228     4                         CALL read_grd4_1atm(wvecfile,work3dg,work2dg)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work3dg, work2dg
+                                   <<< Loop-information  End >>>
+             229     4       8v                IF( m==1 .or. m==nbv ) &
+             230     4                         WRITE(6,'(A,I3.3,3A,4f8.3)') 'MYRANK ',myrank,' is reading.. ',wvecfile, "min-max(3d,2d) :: ", &
+             231     4                           minval( work3dg(:,:,:,:) ), maxval( work3dg(:,:,:,:) ), &
+             232     4                           minval( work2dg(:,:,:)   ), maxval( work2dg(:,:,:)   )
+             233     4                       END IF
+             234     3                       CALL scatter_grd_mpi(0,work3dg,work2dg,work3d,work2d)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work3d, asis3d, (unknown)
+                                   <<< Loop-information  End >>>
+             235     3  pp   8v              asis3d(:,:,:,m) = work3d(:,:,:)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work2d, asis2d, (unknown)
+                                   <<< Loop-information  End >>>
+             236     3  pp   8v              asis2d(:,:,m)   = work2d(:,:)
+             237     3                     END DO
+             238     2                     DEALLOCATE( work3dg, work3d )
+             239     2                     DEALLOCATE( work2dg, work2d )
+             240     2               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis3d, (unknown)
+                                   <<< Loop-information  End >>>
+             241     2  pp   8v            asis3d(:,:,:,:) = asis3d(:,:,:,:)*( 1.0d0-fgt_factor ) +  fgt_factor/dble(nbv) ! forgetting-factor for likelihood
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis2d, (unknown)
+                                   <<< Loop-information  End >>>
+             242     2  pp   8v            asis2d(:,:,:)   = asis2d(:,:,:)  *( 1.0d0-fgt_factor ) +  fgt_factor/dble(nbv) ! forgetting-factor for likelihood
+             243     2                   ELSE
+             244     2                     WRITE(6,'(2A)') '!!WARNING: no such file exist: ',wvecfile
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis3d, asis2d, (unknown)
+                                   <<< Loop-information  End >>>
+             245     2  pp   8v            asis3d = 1.0d0/dble(nbv)  ;  asis2d = 1.0d0/dble(nbv)
+             246     2                   END IF
+             247     1                 ENDIF
+             248                       !
+             249                       ! multiplicative inflation
+             250                       !
+             251     1                 IF(cov_infl_mul > 0.0d0) THEN ! fixed multiplicative inflation parameter
+             252     1                   ALLOCATE( work3d(nij1,nlev,nv3d) )
+             253     1                   ALLOCATE( work2d(nij1,nv2d) )
+             254     1                   work3d = cov_infl_mul
+             255     1                   work2d = cov_infl_mul
+             256     1                   work3d(:,nlev,:) = 1.01d0
+             257     1                 END IF
+             258     1                 IF(cov_infl_mul <= 0.0d0) THEN ! 3D parameter values are read-in
+             259     1                   ALLOCATE( work3dg(nlon,nlat,nlev,nv3d) )
+             260     1                   ALLOCATE( work2dg(nlon,nlat,nv2d) )
+             261     1                   ALLOCATE( work3d(nij1,nlev,nv3d) )
+             262     1                   ALLOCATE( work2d(nij1,nv2d) )
+             263     1                   write(inflfile_i(12:21), '(I10.10)') pymdh
+             264     1                   INQUIRE(FILE=inflfile_i,EXIST=ex)
+             265     2                   IF(ex) THEN
+             266     3                     IF(myrank == 0) THEN
+             267     3                       WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. ',inflfile_i
+             268     3                       CALL read_grd4(inflfile_i,work3dg,work2dg)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work3dg
+                                   <<< Loop-information  End >>>
+             269     3       8v              PRINT *, "  CHECK INFLATIONS :: ", minval( work3dg(:,:,:,:) ), maxval( work3dg(:,:,:,:) )
+             270     3                     END IF
+             271     2                     CALL scatter_grd_mpi(0,work3dg,work2dg,work3d,work2d)
+             272     2                   ELSE
+             273     2                     WRITE(6,'(2A)') '!!WARNING: no such file exist: ',inflfile_i
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work3d, (unknown)
+                                   <<< Loop-information  End >>>
+             274     2  pp   8v            work3d = -1.0d0 * cov_infl_mul
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work2d, (unknown)
+                                   <<< Loop-information  End >>>
+             275     2  pp   8v            work2d = -1.0d0 * cov_infl_mul
+             276     2                   END IF
+             277     1                 END IF
+             278                     
+             279                       !==> SK 20181015 WI based on LUT
+             280     1                 IF( logic_wint ) THEN
+             281     1                   WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading.. BILINLUT.bin for WIP'
+             282     1                   OPEN(1,file='BILINLUT.bin',form="unformatted",access="direct",recl=nlon*nlat*8,action="read")
+             283     1                     READ(1,rec=1) msk(:,:)
+             284     1                     READ(1,rec=2) wix(:,:,1)  ;  READ(1,rec=6) wiy(:,:,1)  ;  READ(1,rec=10) fac(:,:,1)
+             285     1                     READ(1,rec=3) wix(:,:,2)  ;  READ(1,rec=7) wiy(:,:,2)  ;  READ(1,rec=11) fac(:,:,2)
+             286     1                     READ(1,rec=4) wix(:,:,3)  ;  READ(1,rec=8) wiy(:,:,3)  ;  READ(1,rec=12) fac(:,:,3)
+             287     1                     READ(1,rec=5) wix(:,:,4)  ;  READ(1,rec=9) wiy(:,:,4)  ;  READ(1,rec=13) fac(:,:,4)
+             288     1                   CLOSE(1)
+             289     1               
+             290     1                   msk_me(:)=UNDEF ; wix_me(:,:)=UNDEF ; wiy_me(:,:)=UNDEF ; fac_me(:,:)=UNDEF
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<< Loop-information  End >>>
+             291     2  pp    s          DO m=1,nprocs
+             292     3   p                 DO i=1,nij1node(m)
+             293     3                       j    = m-1 + nprocs * (i-1)
+             294     3                       ilon = MOD(j,nlon) + 1
+             295     3                       ilat = (j-ilon+1) / nlon + 1
+             296     4                       IF( myrank==m-1 ) THEN
+             297     4                         msk_me(i)     = msk(ilon,ilat)
+             298     4                         wix_me(i,1:4) = wix(ilon,ilat,1:4)
+             299     4                         wiy_me(i,1:4) = wiy(ilon,ilat,1:4)
+             300     4                         fac_me(i,1:4) = fac(ilon,ilat,1:4)
+             301     4                       END IF
+             302     3   p    v            END DO
+             303     2   p    v          END DO
+             304     1                 END IF
+             305                     
+             306                       !
+             307                       ! p_full for background ensemble mean
+             308                       !
+             309                       ALLOCATE(logpfm(nij1,nlev))
+             310                       CALL calc_pfull(nij1,1,mean2d(:,iv2d_ps),logpfm)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      logpfm, (unknown)
+                                   <<< Loop-information  End >>>
+             311        pp   4v        logpfm = DLOG(logpfm)
+             312                     !
+             313                       ptimer = MPI_WTIME()
+             314                       WRITE(6,'(A,2F10.2)') '### TIMER in DAS_LETKF (INITIALIZE):',ptimer-ptimer01,ptimer-ptimer00
+             315                       ptimer01 = ptimer
+             316                       !
+             317                       ! MAIN ASSIMILATION LOOP
+             318                       !
+             319                       IF( dastype==3 ) logic_lpfgm = .true.
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rsmp3d, (unknown)
+                                   <<< Loop-information  End >>>
+             320        pp   8v        rsmp3d(1:nij1,1:nlev,1:nv3d) = 1.0d0 ! resampling (default)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rsmp2d, (unknown)
+                                   <<< Loop-information  End >>>
+             321        pp   8v        rsmp2d(1:nij1,       1:nv2d) = 1.0d0 ! resampling (default)
+             322                     
+             323                       !
+             324                       ! To fix random number for LPF
+             325                       !
+             326                       call mk_iseed(ymdh, 1,1,1,iseed)
+             327                       call com_rand_seed(nbv,iseed,srand)
+             328                       !!!print *, "inp",myrank, iseed
+             329                     
+             330                       ALLOCATE( hdxf(1:nobstotal,1:nbv),rdiag(1:nobstotal),rloc(1:nobstotal),dep(1:nobstotal) )
+             331     1                 DO ilev=1,nlev
+             332     1                   !!WRITE(6,'(A,I3)') 'ilev = ',ilev
+             333     2                   DO ij=1,nij1
+             334     3                     DO n=1,nv3d
+             335     3               
+             336     3               
+             337     4                       IF(var_local_n2n(n) < n) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans, (unknown)
+                                   <<< Loop-information  End >>>
+             338     4  pp   8v                trans(:,:,n)                 = trans(:,:,var_local_n2n(n))
+             339     4                         work3d(ij,ilev,n)            = work3d(ij,ilev,var_local_n2n(n))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             340     4  pp   6v                wvec3d(ij,ilev,n,1:nbv)      = wvec3d(ij,ilev,var_local_n2n(n),1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             341     4  pp   6v                wmat3d(ij,ilev,n,1:nbv,1:nbv)= wmat3d(ij,ilev,var_local_n2n(n),1:nbv,1:nbv)
+             342     4                         nobs3d(ij,ilev,n)            = nobs3d(ij,ilev,var_local_n2n(n))
+             343     4               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             344     4  pp   6v                pvec3d(ij,ilev,n,1:nbv)      = pvec3d(ij,ilev,var_local_n2n(n),1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             345     4  pp   6v                pmat3d(ij,ilev,n,1:nbv,1:nbv)= pmat3d(ij,ilev,var_local_n2n(n),1:nbv,1:nbv)
+             346     4                         peff3d(ij,ilev,n)            = peff3d(ij,ilev,var_local_n2n(n))
+             347     4                       ELSE
+             348     4                         CALL obs_local(ij,ilev,n,hdxf,rdiag,rloc,dep,nobsl,logpfm)
+             349     4               
+             350     4                         !work ; LETKG (dastype=0) :: adaptive covariance inflation of letkf_core
+             351     4                         !work ; DEBUG (dastype=1) :: adaptive covariance inflation of letkf_core
+             352     4                         !work ; LAPF  (dastype=2) :: adaptive resampling amplitude of lpf_core   (used if type_pfmtx==0 i.e., LAPF's resamplig mtx)
+             353     4                         !work ; LPFGM (dastype=3) :: adaptive resampling amplitude of lpf_core   (used if type_pfmtx==0 i.e., LAPF's resamplig mtx)
+             354     4                         parm = work3d(ij,ilev,n)
+             355     4                         IF( dastype==3 ) parm = GAMMA_GMPF     !! LPFGM ; Walter and Potthast (2019)
+             356     4               
+             357     4                         nobs3d(ij,ilev,n) = REAL( nobsl, r_size )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             358     4  pp   8v                CALL letkf_core(nobstotal,nobsl,hdxf,rdiag,rloc,dep,parm,trans(:,:,n),logic_lpfgm, &
+             359     4                                         wvec3d(ij,ilev,n,1:nbv),wmat3d(ij,ilev,n,1:nbv,1:nbv)              ) !<--- 6/6/2018 A.P. Added savestate for weight LETKF mat/vec
+             360     4                         IF( dastype==0 .or. dastype==1 ) work3d(ij,ilev,n) = parm !! LETKF, UPDATE
+             361     4               
+             362     4                         IF( dastype==2 .or. dastype==3 ) parm = work3d(ij,ilev,n) ! LAPF or LPFGM
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             363     4  pp   8v                CALL lpf_core  (nobstotal,nobsl,hdxf,rdiag,rloc,dep,parm,gr_common,type_pfmtx, &
+             364     4                                         asis3d(ij,ilev,n,1:nbv),peff3d(ij,ilev,n),pvec3d(ij,ilev,n,1:nbv),pmat3d(ij,ilev,n,1:nbv,1:nbv))
+             365     4                         IF( dastype==2 .or. dastype==3 ) work3d(ij,ilev,n) = parm ! LAPF or LPFGM
+             366     4                       END IF
+             367     3                     END DO
+             368     3                     IF(ilev == 1) THEN !update 2d variable at ilev=1
+             369     4                       DO n=1,nv2d
+             370     5                         IF(var_local_n2n(nv3d+n) <= nv3d) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans, (unknown)
+                                   <<< Loop-information  End >>>
+             371     5  pp   8v                  trans(:,:,nv3d+n)        = trans(:,:,var_local_n2n(nv3d+n))
+             372     5                           work2d(ij,n)             = work3d(ij,ilev,var_local_n2n(nv3d+n))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             373     5  pp   6v                  wvec2d(ij,n,1:nbv)       = wvec3d(ij,ilev,var_local_n2n(nv3d+n),1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             374     5  pp   6v                  wmat2d(ij,n,1:nbv,1:nbv) = wmat3d(ij,ilev,var_local_n2n(nv3d+n),1:nbv,1:nbv)
+             375     5                           nobs2d(ij,n)             = nobs3d(ij,ilev,var_local_n2n(nv3d+n))
+             376     5               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             377     5  pp   6v                  pvec2d(ij,n,1:nbv)       = pvec3d(ij,ilev,var_local_n2n(nv3d+n),1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             378     5  pp   6v                  pmat2d(ij,n,1:nbv,1:nbv) = pmat3d(ij,ilev,var_local_n2n(nv3d+n),1:nbv,1:nbv)
+             379     5                           peff2d(ij,n)             = peff3d(ij,ilev,var_local_n2n(nv3d+n))
+             380     5                         ELSE IF(var_local_n2n(nv3d+n) < nv3d+n) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans, (unknown)
+                                   <<< Loop-information  End >>>
+             381     5  pp   8v                  trans(:,:,nv3d+n)        = trans(:,:,var_local_n2n(nv3d+n))
+             382     5                           work2d(ij,n)             = work2d(ij,var_local_n2n(nv3d+n)-nv3d)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             383     5  pp   6v                  wvec2d(ij,n,1:nbv)       = wvec2d(ij,var_local_n2n(nv3d+n)-nv3d,1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             384     5  pp   6v                  wmat2d(ij,n,1:nbv,1:nbv) = wmat2d(ij,var_local_n2n(nv3d+n)-nv3d,1:nbv,1:nbv)
+             385     5                           nobs2d(ij,n)             = nobs2d(ij,var_local_n2n(nv3d+n)-nv3d)
+             386     5               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             387     5  pp   6v                  pvec2d(ij,n,1:nbv)       = pvec2d(ij,var_local_n2n(nv3d+n)-nv3d,1:nbv)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             388     5  pp   6v                  pmat2d(ij,n,1:nbv,1:nbv) = pmat2d(ij,var_local_n2n(nv3d+n)-nv3d,1:nbv,1:nbv)
+             389     5                           peff2d(ij,n)             = peff2d(ij,var_local_n2n(nv3d+n)-nv3d)
+             390     5                         ELSE
+             391     5                           CALL obs_local(ij,ilev,nv3d+n,hdxf,rdiag,rloc,dep,nobsl,logpfm)
+             392     5                           parm = work2d(ij,n)
+             393     5                           IF( dastype==3 ) parm = GAMMA_GMPF     !! LPFGM ; Walter and Potthast (2019)
+             394     5               
+             395     5                           nobs2d(ij,n) = REAL( nobsl, r_size )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             396     5  pp   8v                  CALL letkf_core(nobstotal,nobsl,hdxf,rdiag,rloc,dep,parm,trans(:,:,nv3d+n),logic_lpfgm, &
+             397     5                                           wvec2d(ij,n,1:nbv),wmat2d(ij,n,1:nbv,1:nbv)                             )
+             398     5                           IF( dastype==0 .or. dastype==1 ) work2d(ij,n) = parm !! LETKF, UPDATE
+             399     5               
+             400     5                           IF( dastype==2 .or. dastype==3 ) parm = work2d(ij,n) ! LAPF or LPFGM
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             401     5  pp   8v                  CALL lpf_core  (nobstotal,nobsl,hdxf,rdiag,rloc,dep,parm,gr_common,type_pfmtx, &
+             402     5                                           asis2d(ij,n,1:nbv),peff2d(ij,n),pvec2d(ij,n,1:nbv),pmat2d(ij,n,1:nbv,1:nbv))
+             403     5                           IF( dastype==2 .or. dastype==3 ) work2d(ij,n) = parm ! LAPF or LPFGM
+             404     5                         END IF
+             405     4                       END DO
+             406     3                     END IF
+             407     2                   END DO !(End of IJ loop)
+             408     1                   ptimer = MPI_WTIME()
+             409     1                   WRITE(6,'(A,2F10.2,A,i2)') '### TIMER in DAS_LETKF (MAIN LETKF):',ptimer-ptimer01,ptimer-ptimer00, "  Level: ",ilev
+             410     1                   ptimer01 = ptimer
+             411     1               
+             412     1               !-----------------NOTE ---------------------------------------------------------------------------!
+             413     1               !##   wvec :: transform vector    ; LETKF for mean (IF logic_lpfgm=.TRUE. THEN wvec=0.0d0 )
+             414     1               !##   wmat :: transform matrix    ; LETKF for ptb  (IF logic_lpfgm=.TRUE. THEN wvec=transform matrix for dXb as LETKF)
+             415     1               !##   pvec :: weight of paticles  ; LPF   for mean
+             416     1               !##   pmat :: transform mtx       ; LPF   for particles  (!!CAUTION!! do not use pvec and pmat SIMULTANEOUSLY)
+             417     1               !##   asis :: SIS(log-likelihood) ; LPF   (inout)
+             418     1               !##   peff :: effective particle  ; LPF
+             419     1               !##   rmsp :: resampled or not    ; 0: no,  1: yes
+             420     1               
+             421     1               !-----------------0. WEIGHT TREATMENTS       ---------------------------------------------------------------------------!
+             422     1                   ! currently no weight interpolation and weight smoother
+             423     1               
+             424     1               !-----------------1. JUDGEMENT OF RESAMPLING ---------------------------------------------------------------------------!
+             425     2                   IF( dastype==1 .or. dastype==2 .or. dastype==3 )THEN
+             426     2                     !===> transform matrix = identity matrix I if no resampling
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             427     3  pp                 DO ij=1,nij1
+             428     4   p                     DO n=1,nv3d
+             429     5   p                       IF( peff3d(ij,ilev,n) >= resample_m  .or.  peff3d(ij,ilev,n) <= 0.0d0      )THEN !==> no  resampling
+             430     5   p                         rsmp3d(ij,ilev,n)             = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      Ident, (unknown)
+                                   <<< Loop-information  End >>>
+             431     5   p   8v                    pmat3d(ij,ilev,n,1:nbv,1:nbv) = Ident(1:nbv,1:nbv)
+             432     5   p                       ELSE                                                                             !==> yes resampling
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             433     5   p   8v                    asis3d(ij,ilev,n,1:nbv)       = 1.0d0/dble(nbv)
+             434     5   p                       ENDIF
+             435     4   p                     END DO
+             436     4   p                   IF( ilev==1 )THEN
+             437     5   p                     DO n=1,nv2d
+             438     6   p                       IF( peff2d(ij,     n) >= resample_m  .or.  peff2d(ij,     n) <= 0.0d0      )THEN
+             439     6                             !==> no  resampling
+             440     6   p                         rsmp2d(ij,     n)             = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      Ident, (unknown)
+                                   <<< Loop-information  End >>>
+             441     6   p   8v                    pmat2d(ij,     n,1:nbv,1:nbv) = Ident(1:nbv,1:nbv)
+             442     6   p                       ELSE
+             443     6                             !==> yes resampling
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             444     6   p   8v                    asis2d(ij,     n,1:nbv)       = 1.0d0/dble(nbv)
+             445     6   p                       ENDIF
+             446     5   p                     END DO
+             447     4   p                   END IF
+             448     3   p                 END DO
+             449     2                   END IF
+             450     1               
+             451     1               !-----------------2. LETKF, LPF, LPFGM CONTROLLER ------------------------------------------------------------------------------!
+             452     2                   DO ij=1,nij1  ! assumuming no variable loc.
+             453     3                     IF( dastype==0 )THEN      ! update :: LETKF for mean (wvec) & LETKF for ptb (wmat)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 348
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             454     3  pp   8v                asis3d(ij,ilev,1:nv3d,1:nbv) = 1.0d0/dble(nbv) ! no weight succession
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 616
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             455     3  pp  16                 IF( ilev==1 ) &
+             456     3                         asis2d(ij,     1:nv2d,1:nbv) = 1.0d0/dble(nbv) ! no weight succession
+             457     3                     ELSE IF( dastype==1 )THEN ! update :: LPF   for mean (pvec) & LETKF for ptb (wmat)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 229
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             458     3  pp   8v                wvec3d(ij,ilev,1:nv3d,1:nbv) = pvec3d(ij,ilev,1:nv3d,1:nbv)
+             459     3   p   8v                asis3d(ij,ilev,1:nv3d,1:nbv) = 1.0d0/dble(nbv) ! no weight succession
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             460     3   s    v                rsmp3d(ij,ilev,1:nv3d)       = 1.0d0           ! forced to resample
+             461     4                       IF( ilev==1 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 422
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             462     4  pp  12                 wvec2d(ij,     1:nv2d,1:nbv) = pvec2d(ij,     1:nv2d,1:nbv)
+             463     4   p  12                 asis2d(ij,     1:nv2d,1:nbv) = 1.0d0/dble(nbv) ! no weight succession
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             464     4   s   f                 rsmp2d(ij,     1:nv2d)       = 1.0d0           ! forced to resample
+             465     4                       ENDIF
+             466     3                     ELSE IF( dastype==2 )THEN ! update ::                       & LPF   for ensemble (pmat)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 348
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             467     3  pp   8v                wvec3d(ij,ilev,1:nv3d,1:nbv)       = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             468     3  pp   8v                wmat3d(ij,ilev,1:nv3d,1:nbv,1:nbv) = pmat3d(ij,ilev,1:nv3d,1:nbv,1:nbv)
+             469     4                       IF( ilev==1 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 616
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             470     4  pp  16                 wvec2d(ij,     1:nv2d,1:nbv)       = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             471     4  pp  16                 wmat2d(ij,     1:nv2d,1:nbv,1:nbv) = pmat2d(ij,     1:nv2d,1:nbv,1:nbv)
+             472     4                       ENDIF
+             473     3                     ELSE IF ( dastype==3 )THEN ! update ::                        LPFGM for ensemble (wmat*pmat)
+             474     3                         !===> wvec is already defined to be 0.0 in common_letkf.f90
+             475     4                         DO n=1,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             476     4  pp   6v                  wmat3d(ij,ilev,n,1:nbv,1:nbv) = matmul( wmat3d(ij,ilev,n,1:nbv,1:nbv),pmat3d(ij,ilev,n,1:nbv,1:nbv) )
+             477     4                         END DO
+             478     4                       IF( ilev==1 ) THEN
+             479     5                         DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             480     5  pp   6v                  wmat2d(ij,     n,1:nbv,1:nbv) = matmul( wmat2d(ij,     n,1:nbv,1:nbv),pmat2d(ij,     n,1:nbv,1:nbv) )
+             481     5                         ENDDO
+             482     4                       ENDIF
+             483     3                     END IF
+             484     2                   END DO
+             485     1                   ! MEMO :: LPF has only W matrix, no need to have w for mean updates
+             486     1               
+             487     1                   !--------------3). ENSEMBLE UPDATES ------------------------------------------------------------------!
+             488     2                   DO ij=1,nij1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             489     3                     DO n=1,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans3, (unknown)
+                                   <<< Loop-information  End >>>
+             490     4  pp                   DO m=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans3, (unknown)
+                                   <<< Loop-information  End >>>
+             491     4   p   6v                trans3(1:nbv,m)=wmat3d(ij,ilev,n,1:nbv,m)  + wvec3d(ij,ilev,n,1:nbv)
+             492     4   p                   END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans3, (unknown)
+                                   <<< Loop-information  End >>>
+             493     4  pp                   DO m=1,nbv
+             494     4   p                     anal3d(ij,ilev,m,n) = mean3d(ij,ilev,n)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans3, (unknown)
+                                   <<< Loop-information  End >>>
+             495     5   p   8v                DO k=1,nbv
+             496     5   p   8v                  anal3d(ij,ilev,m,n) = anal3d(ij,ilev,m,n) &
+             497     5                                             & + gues3d(ij,ilev,k,n) * trans3(k,m)
+             498     5   p   8v                END DO
+             499     4   p                   END DO
+             500     3               
+             501     3                       !==> RELAXATION (RTPP or RTPS)
+             502     4                       IF( alph_relax/=0.0d0 .and. type_relax>=1) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             503     4  pp   8v                tmpave        = sum( anal3d(ij,ilev,1:nbv,n) ) / dble( nbv )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             504     4  pp    v                tmpptb(1:nbv) = anal3d(ij,ilev,1:nbv,n) - tmpave
+             505     5                         IF(      type_relax==1 ) THEN ! RTPP
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             506     5  pp   6v                  anal3d(ij,ilev,1:nbv,n) = tmpave + alph_relax *gues3d(ij,ilev,1:nbv,n) + &
+             507     5                                                    ( 1.0d0 - alph_relax)*tmpptb(1:nbv)
+             508     5                         ELSE IF( type_relax==2 ) THEN ! RTPS
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             509     5  pp   8v                  gusspr = dsqrt( sum( gues3d(ij,ilev,1:nbv,n)**2.0d0 ) / REAL(nbv-1,r_size))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             510     5  pp   8v                  anlspr = dsqrt( sum( tmpptb(        1:nbv  )**2.0d0 ) / REAL(nbv-1,r_size))
+             511     6                           IF( anlspr<gusspr .and. anlspr>0.0d0 )THEN
+             512     6                             tmpinf                  = 1.0d0 - alph_relax + alph_relax*(gusspr/anlspr) ! inflation factor
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             513     6  pp   8v                    anal3d(ij,ilev,1:nbv,n) = tmpave + tmpptb(1:nbv)*tmpinf
+             514     6                           END IF
+             515     5                         END IF
+             516     4                       ENDIF
+             517     3                     END DO
+             518     3                     IF(ilev >= 5) THEN !no analysis for upper-level Q
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             519     4  pp   6v               DO m=1,nbv
+             520     4   p   6v                  anal3d(ij,ilev,m,iv3d_q) = mean3d(ij,ilev,iv3d_q) &
+             521     4                                                  & + gues3d(ij,ilev,m,iv3d_q)
+             522     4   p   6v              END DO
+             523     3                     END IF
+             524     2               
+             525     3                     IF(ilev == 1) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             526     4                       DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans2, (unknown)
+                                   <<< Loop-information  End >>>
+             527     5  pp                     DO m=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans2, (unknown)
+                                   <<< Loop-information  End >>>
+             528     5   p   6v                  trans2(1:nbv,m)=wmat2d(ij,n,1:nbv,m)  + wvec2d(ij,n,1:nbv)
+             529     5   p                     END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans2, (unknown)
+                                   <<< Loop-information  End >>>
+             530     5  pp                     DO m=1,nbv
+             531     5   p                       anal2d(ij,m,n)  = mean2d(ij,n)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      trans2, (unknown)
+                                   <<< Loop-information  End >>>
+             532     6   p   8v                  DO k=1,nbv
+             533     6   p   8v                    anal2d(ij,m,n) = anal2d(ij,m,n) &
+             534     6                                          & + gues2d(ij,k,n) * trans2(k,m)
+             535     6   p   8v                  END DO
+             536     5   p                     END DO
+             537     4               
+             538     4                         !==> RELAXATION (RTPP or RTPS)
+             539     5                         IF( alph_relax/=0.0d0 .and. type_relax>=1 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             540     5  pp   8v                  tmpave        = sum( anal2d(ij,1:nbv,n) ) / dble( nbv )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             541     5  pp    v                  tmpptb(1:nbv) = anal2d(ij,1:nbv,n) - tmpave
+             542     6                           IF(      type_relax==1 ) THEN ! RTPP
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             543     6  pp   6v                    anal2d(ij,1:nbv,n) = tmpave + alph_relax *gues2d(ij,1:nbv,n) + &
+             544     6                                                 ( 1.0d0 - alph_relax)*tmpptb(1:nbv)
+             545     6                           ELSE IF( type_relax==2 ) THEN ! RTPS
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             546     6  pp   8v                    gusspr = dsqrt( sum( gues2d(ij,1:nbv,n)**2.0d0 ) / REAL(nbv-1,r_size))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             547     6  pp   8v                    anlspr = dsqrt( sum( tmpptb(   1:nbv  )**2.0d0 ) / REAL(nbv-1,r_size))
+             548     7                             IF( anlspr<gusspr .and. anlspr>0.0d0 )THEN
+             549     7                               tmpinf             = 1.0d0 - alph_relax + alph_relax*(gusspr/anlspr) ! inflation factor
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      tmpptb, (unknown)
+                                   <<< Loop-information  End >>>
+             550     7  pp   8v                      anal2d(ij,1:nbv,n) = tmpave + tmpptb(1:nbv)*tmpinf
+             551     7                             END IF
+             552     6                           END IF
+             553     5                         ENDIF
+             554     4                       END DO
+             555     3                     END IF
+             556     2                   END DO ! ij
+             557     1               
+             558     1                   ptimer = MPI_WTIME()
+             559     1                   WRITE(6,'(A,2F10.2,A,i2)') '### TIMER in DAS_LETKF (WHT INTERP):',ptimer-ptimer01,ptimer-ptimer00, "  Level: ",ilev
+             560     1                   ptimer01 = ptimer
+             561     1                 !------------------ END OF NEW CODING FOR GATHER, FILTER, SCATTER, ANALYZE-----------------------------------------------!
+             562     1                 END DO   !(End of Assimilation loop; ilev)
+             563                       ptimer = MPI_WTIME()
+             564                       WRITE(6,'(A,2F10.2)') '### TIMER in DAS_LETKF (END LETKFs):',ptimer-ptimer01,ptimer-ptimer00
+             565                       ptimer01 = ptimer
+             566                     
+             567                       !!!!===> check consistency of random number
+             568                       !!!call com_rand_seed(nbv,iseed,srand)
+             569                       !!!print '(i5,5f8.5)', myrank, srand(1:5)
+             570                     
+             571                       DEALLOCATE(hdxf,rdiag,rloc,dep)
+             572     1                 IF(cov_infl_mul < 0.0d0) THEN
+             573     1                   CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             574     2                   IF(myrank == 0) THEN
+             575     2                     write(inflfile_o(12:21), '(I10.10)') ymdh
+             576     2                     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. ',inflfile_o
+             577     2                     CALL write_grd4(inflfile_o,work3dg,work2dg)
+             578     2                   END IF
+             579     1                   DEALLOCATE(work3dg,work2dg,work3d,work2d)
+             580     1                 END IF
+             581                       !
+             582                       ! Effective Particle Size & Selectited Particle Numbers
+             583                       !
+             584                       ALLOCATE( work3dg(nlon,nlat,nlev,nv3d), work2dg(nlon,nlat,nv2d) )
+             585                       ALLOCATE( work3d(nij1,nlev,nv3d)      , work2d(nij1,nv2d)       )
+             586                         !==> effective particle size
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      peff3d, work3d, peff2d, work2d
+                                   <<<      (unknown)
+                                   <<< Loop-information  End >>>
+             587        pp   8v          work3d = peff3d ; work2d = peff2d
+             588                         CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             589     1                   IF(myrank == 0) THEN
+             590     1                     write(pefffile_o(12:21), '(I10.10)') ymdh
+             591     1                     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. ',pefffile_o
+             592     1                     CALL write_grd4(pefffile_o,work3dg,work2dg)
+             593     1                   END IF
+             594                     
+             595                         !==> resampled or not (0: no, 1: yes)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rsmp3d, work3d, rsmp2d, work2d
+                                   <<<      (unknown)
+                                   <<< Loop-information  End >>>
+             596        pp   8v          work3d = rsmp3d ; work2d = rsmp2d
+             597                         CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             598     1                   IF(myrank == 0) THEN
+             599     1                     write(rsmpfile_o(12:21), '(I10.10)') ymdh
+             600     1                     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. ',rsmpfile_o
+             601     1                     CALL write_grd4(rsmpfile_o,work3dg,work2dg)
+             602     1                   END IF
+             603                       DEALLOCATE(work3dg,work2dg,work3d,work2d)
+             604                     
+             605                       !
+             606                       ! Additive inflation
+             607                       !
+             608     1                 IF(sp_infl_add > 0.0d0) THEN
+             609     1                   CALL read_ens_mpi('addi',nbv,gues3d,gues2d)
+             610     1                   ALLOCATE( work3d(nij1,nlev,nv3d) )
+             611     1                   ALLOCATE( work2d(nij1,nv2d) )
+             612     1                   CALL ensmean_grd(nbv,nij1,gues3d,gues2d,work3d,work2d)
+             613     2                   DO n=1,nv3d
+             614     3                     DO m=1,nbv
+             615     4                       DO k=1,nlev
+             616     5                         DO i=1,nij1
+             617     5                           gues3d(i,k,m,n) = gues3d(i,k,m,n) - work3d(i,k,n)
+             618     5                         END DO
+             619     4                       END DO
+             620     3                     END DO
+             621     2                   END DO
+             622     2                   DO n=1,nv2d
+             623     3                     DO m=1,nbv
+             624     4                       DO i=1,nij1
+             625     4                         gues2d(i,m,n) = gues2d(i,m,n) - work2d(i,n)
+             626     4                       END DO
+             627     3                     END DO
+             628     2                   END DO
+             629     1               
+             630     1                   DEALLOCATE(work3d,work2d)
+             631     1                   WRITE(6,'(A)') '===== Additive covariance inflation ====='
+             632     1                   WRITE(6,'(A,F10.4)') '  parameter:',sp_infl_add
+             633     1                   WRITE(6,'(A)') '========================================='
+             634     1               !    parm = 0.7d0
+             635     1               !    DO ilev=1,nlev
+             636     1               !      parm_infl_damp(ilev) = 1.0d0 + parm &
+             637     1               !        & + parm * REAL(1-ilev,r_size)/REAL(nlev_dampinfl,r_size)
+             638     1               !      parm_infl_damp(ilev) = MAX(parm_infl_damp(ilev),1.0d0)
+             639     1               !    END DO
+             640     2                   DO n=1,nv3d
+             641     3                     DO m=1,nbv
+             642     4                       DO ilev=1,nlev
+             643     5                         DO ij=1,nij1
+             644     5                           anal3d(ij,ilev,m,n) = anal3d(ij,ilev,m,n) &
+             645     5                             & + gues3d(ij,ilev,m,n) * sp_infl_add
+             646     5                         END DO
+             647     4                       END DO
+             648     3                     END DO
+             649     2                   END DO
+             650     2                   DO n=1,nv2d
+             651     3                     DO m=1,nbv
+             652     4                       DO ij=1,nij1
+             653     4                         anal2d(ij,m,n) = anal2d(ij,m,n) + gues2d(ij,m,n) * sp_infl_add
+             654     4                       END DO
+             655     3                     END DO
+             656     2                   END DO
+             657     1                 END IF
+             658                     
+             659                       !--> A.P 6/6/2018 - To save weight vector of LETKF
+             660     1                 IF( logic_wout )THEN
+             661     1                   ALLOCATE( work3d(nij1,nlev,nv3d), work3dg(nlon,nlat,nlev,nv3d) )
+             662     1                   ALLOCATE( work2d(nij1,nv2d)     , work2dg(nlon,nlat,nv2d)      )
+             663     1               
+             664     1                   !==> max weight
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work3d, (unknown)
+                                   <<< Loop-information  End >>>
+             665     4  pp               DO n=1,nv3d ; DO ilev=1,nlev ; DO ij=1,nij1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             666     4   p   8v            work3d(ij,ilev,n) = maxval( abs(wvec3d(ij,ilev,n,:)) )
+             667     4                     !work3d(ij,ilev,n) =         sum(wmat3d(ij,ilev,n,:,1)) ! debug
+             668     4   p               END DO      ; END DO         ; END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work2d, (unknown)
+                                   <<< Loop-information  End >>>
+             669     3  pp               DO n=1,nv2d ;                  DO ij=1,nij1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             670     3   p   8v            work2d(ij,n)      = maxval( abs(wvec2d(ij,n,:)     ) )
+             671     3   p               END DO      ;                  END DO
+             672     1                   CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             673     2                   IF(myrank == 0) THEN
+             674     2                       WRITE(wvecfile,'(a7,i10.10,a)') './wvec/',ymdh,'_Mensmax.grd'
+             675     2                       WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. (max member)',wvecfile
+             676     2                       CALL write_grd4_1atm(wvecfile,work3dg,work2dg)
+             677     2                   END IF
+             678     1               
+             679     1                   !==> each member for monitor (resulting weights)
+             680     1                    !debug!DO m=1,nbv
+             681     2                    DO m=1,2
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wvec3d, work3d, (unknown)
+                                   <<< Loop-information  End >>>
+             682     2  pp   8v            work3d(:,:,:) = wvec3d(:,:,:,m)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wvec2d, work2d, (unknown)
+                                   <<< Loop-information  End >>>
+             683     2  pp   8v            work2d(:,:)   = wvec2d(:,:,m)
+             684     2               
+             685     2                     !work3d(:,:,:) = wmat3d(:,:,:,m,1) !debug!
+             686     2                     CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             687     2               
+             688     3                     IF(myrank == 0) THEN
+             689     3                       WRITE(wvecfile,'(a7,i10.10,a2,i6.6,a4)') './wvec/',ymdh,'_M',m,'.grd'
+             690     3                       IF( m==1   ) WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. (fst member): ',wvecfile
+             691     3                       IF( m==nbv ) WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. (fnl member): ',wvecfile
+             692     3                       CALL write_grd4_1atm(wvecfile,work3dg,work2dg)
+             693     3                     END IF
+             694     2                   END DO
+             695     1                   DEALLOCATE(work3dg,work2dg,work3d,work2d)
+             696     1                 ENDIF
+             697                     
+             698                       !==> each member for SIS (need to save all member)
+             699     1                 IF( fgt_factor < 1.0d0 )THEN
+             700     1                   ALLOCATE( work3d(nij1,nlev,nv3d), work3dg(nlon,nlat,nlev,nv3d) )
+             701     1                   ALLOCATE( work2d(nij1,nv2d)     , work2dg(nlon,nlat,nv2d)      )
+             702     2                   DO m=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis3d, work3d, (unknown)
+                                   <<< Loop-information  End >>>
+             703     2  pp   8v            work3d(:,:,:) = asis3d(:,:,:,m)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      asis2d, work2d, (unknown)
+                                   <<< Loop-information  End >>>
+             704     2  pp   8v            work2d(:,:)   = asis2d(:,:,m)
+             705     2                     CALL gather_grd_mpi(0,work3d,work2d,work3dg,work2dg)
+             706     2               
+             707     3                     IF(myrank == 0) THEN
+             708     3                       WRITE(wvecfile,'(a7,i10.10,a2,i6.6,a4)') './asis_lpf/',ymdh,'_M',m,'.grd'
+             709     3                       IF( m==1   ) WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. (fst member): ',wvecfile
+             710     3                       IF( m==nbv ) WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing.. (fnl member): ',wvecfile
+             711     3                       CALL write_grd4_1atm(wvecfile,work3dg,work2dg)
+             712     3                     END IF
+             713     2                   END DO
+             714     1                   DEALLOCATE(work3dg,work2dg,work3d,work2d)
+             715     1                 ENDIF
+             716                       !--> END OF EDITS
+             717                     !
+             718                       ptimer = MPI_WTIME()
+             719                       WRITE(6,'(A,2F10.2)') '### TIMER in DAS_LETKF (EXIT LETKF):',ptimer-ptimer01,ptimer-ptimer00
+             720                       ptimer01 = ptimer
+             721                     !
+             722                       DEALLOCATE(logpfm,mean3d,mean2d)
+             723                       RETURN
+             724                     END SUBROUTINE das_letkf
+             725                     
+             726                     !-----------------------------------------------------------------------
+             727                     ! Project global observations to local
+             728                     !     (hdxf_g,dep_g,rdiag_g) -> (hdxf,dep,rdiag)
+             729                     !-----------------------------------------------------------------------
+             730                     SUBROUTINE obs_local(ij,ilev,nvar,hdxf,rdiag,rloc,dep,nobsl,logpfm)
+             731                       IMPLICIT NONE
+             732                       INTEGER,INTENT(IN) :: ij,ilev,nvar
+             733                       REAL(r_size),INTENT(IN) :: logpfm(nij1,nlev)
+             734                       REAL(r_size),INTENT(OUT) :: hdxf(nobstotal,nbv)
+             735                       REAL(r_size),INTENT(OUT) :: rdiag(nobstotal)
+             736                       REAL(r_size),INTENT(OUT) :: rloc(nobstotal)
+             737                       REAL(r_size),INTENT(OUT) :: dep(nobstotal)
+             738                       INTEGER,INTENT(OUT) :: nobsl
+             739                       REAL(r_size) :: minlon,maxlon,minlat,maxlat,dist,dlev
+             740                       REAL(r_size) :: tmplon,tmplat,tmperr,tmpwgt(nlev)
+             741                       INTEGER :: tmpqc
+             742                       INTEGER,ALLOCATABLE:: nobs_use(:)
+             743                     !TVS  INTEGER,ALLOCATABLE:: ntvs_use_prof(:),ntvs_use_inst(:),ntvs_use_slot(:)
+             744                       INTEGER :: imin,imax,jmin,jmax,im,ichan
+             745                       INTEGER :: n,nn,tvnn,iobs
+             746                     !
+             747                     ! INITIALIZE
+             748                     !
+             749     1                 IF( nobs > 0 ) THEN
+             750     1                   ALLOCATE(nobs_use(nobs))
+             751     1                 END IF
+             752                     !TVS  IF( ntvs > 0 ) THEN
+             753                     !TVS    ALLOCATE(ntvs_use_prof(ntvs))
+             754                     !TVS    ALLOCATE(ntvs_use_inst(ntvs))
+             755                     !TVS    ALLOCATE(ntvs_use_slot(ntvs))
+             756                     !TVS  END IF
+             757                     !
+             758                     ! data search
+             759                     !
+             760                       minlon = lon1(ij) - dlon_zero(ij)
+             761                       maxlon = lon1(ij) + dlon_zero(ij)
+             762                       minlat = lat1(ij) - dlat_zero
+             763                       maxlat = lat1(ij) + dlat_zero
+             764     1                 IF(maxlon - minlon >= 360.0d0) THEN
+             765     1                   minlon = 0.0d0
+             766     1                   maxlon = 360.0d0
+             767     1                 END IF
+             768                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lat: 8
+                                   <<< Loop-information  End >>>
+             769     1       5         DO jmin=1,nlat-2
+             770     1       5           IF(minlat < lat(jmin+1)) EXIT
+             771     1       5         END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lat: 8
+                                   <<< Loop-information  End >>>
+             772     1       5         DO jmax=1,nlat-2
+             773     1       5           IF(maxlat < lat(jmax+1)) EXIT
+             774     1       5         END DO
+             775                       nn = 1
+             776                     !TVS  tvnn = 1
+             777     1                 IF(minlon >= 0 .AND. maxlon <= 360.0) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             778     2       5           DO imin=1,nlon-1
+             779     2       5             IF(minlon < lon(imin+1)) EXIT
+             780     2       5           END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             781     2       5           DO imax=1,nlon-1
+             782     2       5             IF(maxlon < lon(imax+1)) EXIT
+             783     2       5           END DO
+             784     1                   IF( nobs > 0 ) &
+             785     1                   & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             786     1               !TVS    IF( ntvs > 0 ) &
+             787     1               !TVS    & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             788     1               !TVS    &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             789     1                 ELSE IF(minlon >= 0 .AND. maxlon > 360.0) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             790     2       5           DO imin=1,nlon-1
+             791     2       5             IF(minlon < lon(imin+1)) EXIT
+             792     2       5           END DO
+             793     1                   maxlon = maxlon - 360.0d0
+             794     2                   IF(maxlon > 360.0d0) THEN
+             795     2                     imin = 1
+             796     2                     imax = nlon
+             797     2                     IF( nobs > 0 ) &
+             798     2                     & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             799     2               !TVS      IF( ntvs > 0 ) &
+             800     2               !TVS      & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             801     2               !TVS      &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             802     2                   ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             803     3       5             DO imax=1,nlon-1
+             804     3       5               IF(maxlon < lon(imax+1)) EXIT
+             805     3       5             END DO
+             806     3                     IF(imax > imin) THEN
+             807     3                       imin = 1
+             808     3                       imax = nlon
+             809     3                       IF( nobs > 0 ) &
+             810     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             811     3               !TVS        IF( ntvs > 0 ) &
+             812     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             813     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             814     3                     ELSE
+             815     3                       imin = 1
+             816     3                       IF( nobs > 0 ) &
+             817     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             818     3               !TVS        IF( ntvs > 0 ) &
+             819     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             820     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             821     4       5               DO imin=1,nlon-1
+             822     4       5                 IF(minlon < lon(imin+1)) EXIT
+             823     4       5               END DO
+             824     3                       imax = nlon
+             825     3                       IF( nobs > 0 ) &
+             826     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             827     3               !TVS        IF( ntvs > 0 ) &
+             828     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             829     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             830     3                     END IF
+             831     2                   END IF
+             832     1                 ELSE IF(minlon < 0 .AND. maxlon <= 360.0d0) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             833     2       5           DO imax=1,nlon-1
+             834     2       5             IF(maxlon < lon(imax+1)) EXIT
+             835     2       5           END DO
+             836     1                   minlon = minlon + 360.0d0
+             837     2                   IF(minlon < 0) THEN
+             838     2                     imin = 1
+             839     2                     imax = nlon
+             840     2                     IF( nobs > 0 ) &
+             841     2                     & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             842     2               !TVS      IF( ntvs > 0 ) &
+             843     2               !TVS      & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             844     2               !TVS      &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             845     2                   ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             846     3       5             DO imin=1,nlon-1
+             847     3       5               IF(minlon < lon(imin+1)) EXIT
+             848     3       5             END DO
+             849     3                     IF(imin < imax) THEN
+             850     3                       imin = 1
+             851     3                       imax = nlon
+             852     3                       IF( nobs > 0 ) &
+             853     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             854     3               !TVS        IF( ntvs > 0 ) &
+             855     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             856     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             857     3                     ELSE
+             858     3                       imin = 1
+             859     3                       IF( nobs > 0 ) &
+             860     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             861     3               !TVS        IF( ntvs > 0 ) &
+             862     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             863     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             864     4       5               DO imin=1,nlon-1
+             865     4       5                 IF(minlon < lon(imin+1)) EXIT
+             866     4       5               END DO
+             867     3                       imax = nlon
+             868     3                       IF( nobs > 0 ) &
+             869     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             870     3               !TVS        IF( ntvs > 0 ) &
+             871     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             872     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             873     3                     END IF
+             874     2                   END IF
+             875     1                 ELSE
+             876     1                   maxlon = maxlon - 360.0d0
+             877     1                   minlon = minlon + 360.0d0
+             878     2                   IF(maxlon > 360.0 .OR. minlon < 0) THEN
+             879     2                     imin = 1
+             880     2                     imax = nlon
+             881     2                     IF( nobs > 0 ) &
+             882     2                     & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             883     2               !TVS      IF( ntvs > 0 ) &
+             884     2               !TVS      & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             885     2               !TVS      &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             886     2                   ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             887     3       5             DO imin=1,nlon-1
+             888     3       5               IF(minlon < lon(imin+1)) EXIT
+             889     3       5             END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon, (unknown)
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      lon: 8
+                                   <<< Loop-information  End >>>
+             890     3       5             DO imax=1,nlon-1
+             891     3       5               IF(maxlon < lon(imax+1)) EXIT
+             892     3       5             END DO
+             893     3                     IF(imin > imax) THEN
+             894     3                       imin = 1
+             895     3                       imax = nlon
+             896     3                       IF( nobs > 0 ) &
+             897     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             898     3               !TVS        IF( ntvs > 0 ) &
+             899     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             900     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             901     3                     ELSE
+             902     3                       IF( nobs > 0 ) &
+             903     3                       & CALL obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+             904     3               !TVS        IF( ntvs > 0 ) &
+             905     3               !TVS        & CALL tvs_local_sub(imin,imax,jmin,jmax,tvnn, &
+             906     3               !TVS        &                    ntvs_use_prof,ntvs_use_inst,ntvs_use_slot)
+             907     3                     END IF
+             908     2                   END IF
+             909     1                 END IF
+             910                       nn = nn-1
+             911                     !TVS  tvnn = tvnn -1
+             912                     !TVS  IF( nn < 1 .AND. tvnn < 1 ) THEN
+             913     1                 IF(nn < 1) THEN
+             914     1                   nobsl = 0
+             915     1                   RETURN
+             916     1                 END IF
+             917                     !
+             918                     ! CONVENTIONAL
+             919                     !
+             920                       nobsl = 0
+             921     1                 IF(nn > 0) THEN
+             922     2                   DO n=1,nn
+             923     2                     !
+             924     2                     ! vertical localization
+             925     2                     !
+             926     3                     IF(NINT(obselm(nobs_use(n))) == id_ps_obs .AND. ilev > 1) THEN
+             927     3                       dlev = ABS(LOG(obsdat(nobs_use(n))) - logpfm(ij,ilev))
+             928     3                     ELSE IF(NINT(obselm(nobs_use(n))) /= id_ps_obs) THEN
+             929     3                       dlev = ABS(LOG(obslev(nobs_use(n))) - logpfm(ij,ilev))
+             930     3                     ELSE
+             931     3                       dlev = 0.0d0
+             932     3                     END IF
+             933     2                     IF(dlev > dist_zerov) CYCLE
+             934     2                     !
+             935     2                     ! horizontal localization
+             936     2                     !
+             937     2                     tmplon=obslon(nobs_use(n))
+             938     2                     tmplat=obslat(nobs_use(n))
+             939     2                     CALL com_distll_1( tmplon, tmplat,lon1(ij), lat1(ij), dist)
+             940     2                     IF(dist > dist_zero ) CYCLE
+             941     2                     !
+             942     2                     ! variable localization
+             943     2                     !
+             944     3                     SELECT CASE(NINT(obselm(nobs_use(n))))
+             945     3                     CASE(id_u_obs)
+             946     3                       iobs=1
+             947     3                     CASE(id_v_obs)
+             948     3                       iobs=2
+             949     3                     CASE(id_t_obs)
+             950     3                       iobs=3
+             951     3                     CASE(id_q_obs)
+             952     3                       iobs=4
+             953     3                     CASE(id_rh_obs)
+             954     3                       iobs=5
+             955     3                     CASE(id_ps_obs)
+             956     3                       iobs=6
+             957     3                     CASE(id_rain_obs)
+             958     3                       iobs=7
+             959     3                     END SELECT
+             960     2                     IF(var_local(nvar,iobs) < TINY(var_local)) CYCLE
+             961     2               
+             962     2                     nobsl = nobsl + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             963     2  pp   6v            hdxf(nobsl,:) = obshdxf(nobs_use(n),:)
+             964     2                     dep(nobsl)    = obsdep(nobs_use(n))
+             965     2                     !
+             966     2                     ! Observational localization
+             967     2                     !
+             968     2                     tmperr=obserr(nobs_use(n))
+             969     2                     rdiag(nobsl) = tmperr * tmperr
+             970     2                     rloc(nobsl) =EXP(-0.5d0 * ((dist/sigma_obs)**2 + (dlev/sigma_obsv)**2)) &
+             971     2                                 & * var_local(nvar,iobs)
+             972     2                   END DO
+             973     1                 END IF
+             974                     !TVS!
+             975                     !TVS! ATOVS
+             976                     !TVS!
+             977                     !TVS  IF(tvnn > 0) THEN
+             978                     !TVS    DO n=1,tvnn
+             979                     !TVS      tmplon=tvslon(ntvs_use_prof(n),ntvs_use_inst(n),ntvs_use_slot(n))
+             980                     !TVS      tmplat=tvslat(ntvs_use_prof(n),ntvs_use_inst(n),ntvs_use_slot(n))
+             981                     !TVS      CALL com_distll_1( tmplon, tmplat, lon1(ij), lat1(ij), dist)
+             982                     !TVS      IF( dist > dist_zero) CYCLE
+             983                     !TVS
+             984                     !TVS      DO ichan=1,ntvsch(ntvs_use_inst(n))
+             985                     !TVS        tmperr=tvserr(ichan,ntvs_use_prof(n),ntvs_use_inst(n),ntvs_use_slot(n))
+             986                     !TVS        tmpqc=tvsqc(ichan,ntvs_use_prof(n),ntvs_use_inst(n),ntvs_use_slot(n))
+             987                     !TVS        tmpwgt(:)=tvswgt(:,ichan, &
+             988                     !TVS                         & ntvs_use_prof(n), &
+             989                     !TVS                         & ntvs_use_inst(n), &
+             990                     !TVS                         & ntvs_use_slot(n))
+             991                     !TVS        IF( tmpqc == 1 .AND. tmpwgt(ilev) > 0.05D0 ) THEN
+             992                     !TVS          nobsl = nobsl + 1
+             993                     !TVS          DO im = 1, nbv
+             994                     !TVS            hdxf(nobsl,im) = tvshdxf(im,ichan, &
+             995                     !TVS                              & ntvs_use_prof(n), &
+             996                     !TVS                              & ntvs_use_inst(n), &
+             997                     !TVS                              & ntvs_use_slot(n))
+             998                     !TVS          END DO
+             999                     !TVS          dep(nobsl)    = tvsdep(ichan, &
+            1000                     !TVS                              & ntvs_use_prof(n), &
+            1001                     !TVS                              & ntvs_use_inst(n), &
+            1002                     !TVS                              & ntvs_use_slot(n))
+            1003                     !TVS          rdiag(nobsl)  = tmperr * tmperr &
+            1004                     !TVS                        & * exp(0.5d0 * (dist/sigma_obs)**2) &
+            1005                     !TVS                        & / (tmpwgt(ilev) * tmpwgt(ilev))
+            1006                     !TVS        END IF
+            1007                     !TVS      END DO
+            1008                     !TVS    END DO
+            1009                     !TVS  END IF
+            1010                     !
+            1011                     ! DEBUG
+            1012                     ! IF( ILEV == 1 .AND. ILON == 1 ) &
+            1013                     ! & WRITE(6,*) 'ILEV,ILON,ILAT,NN,TVNN,NOBSL=',ilev,ij,nn,tvnn,nobsl
+            1014                     !
+            1015     1                 IF( nobsl > nobstotal ) THEN
+            1016     1                   WRITE(6,'(A,I5,A,I5)') 'FATAL ERROR, NOBSL=',nobsl,' > NOBSTOTAL=',nobstotal
+            1017     1                   WRITE(6,*) 'IJ,NN,TVNN=', ij, nn, tvnn
+            1018     1                   STOP 99
+            1019     1                 END IF
+            1020                     !
+            1021     1                 IF( nobs > 0 ) THEN
+            1022     1                   DEALLOCATE(nobs_use)
+            1023     1                 END IF
+            1024                     !TVS  IF( ntvs > 0 ) THEN
+            1025                     !TVS    DEALLOCATE(ntvs_use_prof)
+            1026                     !TVS    DEALLOCATE(ntvs_use_inst)
+            1027                     !TVS    DEALLOCATE(ntvs_use_slot)
+            1028                     !TVS  END IF
+            1029                     !
+            1030                       RETURN
+            1031                     END SUBROUTINE obs_local
+            1032                     
+            1033                     SUBROUTINE obs_local_sub(imin,imax,jmin,jmax,nn,nobs_use)
+            1034                       INTEGER,INTENT(IN) :: imin,imax,jmin,jmax
+            1035                       INTEGER,INTENT(INOUT) :: nn, nobs_use(nobs)
+            1036                       INTEGER :: j,n,ib,ie,ip
+            1037                     
+            1038     1                 DO j=jmin,jmax
+            1039     2                   IF(imin > 1) THEN
+            1040     2                     ib = nobsgrd(imin-1,j)+1
+            1041     2                   ELSE
+            1042     3                     IF(j > 1) THEN
+            1043     3                       ib = nobsgrd(nlon,j-1)+1
+            1044     3                     ELSE
+            1045     3                       ib = 1
+            1046     3                     END IF
+            1047     2                   END IF
+            1048     1                   ie = nobsgrd(imax,j)
+            1049     1                   n = ie - ib + 1
+            1050     1                   IF(n == 0) CYCLE
+            1051     2   s    s          DO ip=ib,ie
+            1052     3   m    s            IF(nn > nobs) THEN
+            1053     3   m    s              WRITE(6,*) 'FATALERROR, NN > NOBS', NN, NOBS
+            1054     3   p    v            END IF
+            1055     2   m    v            nobs_use(nn) = ip
+            1056     2   s    s            nn = nn + 1
+            1057     2   p    v          END DO
+            1058     1                 END DO
+            1059                     
+            1060                       RETURN
+            1061                     END SUBROUTINE obs_local_sub
+            1062                     
+            1063                     !TVSSUBROUTINE tvs_local_sub(imin,imax,jmin,jmax,nn,ntvs_prof,ntvs_inst,ntvs_slot)
+            1064                     !TVS  INTEGER,INTENT(IN) :: imin,imax,jmin,jmax
+            1065                     !TVS  INTEGER,INTENT(INOUT) :: nn, ntvs_prof(ntvs), ntvs_inst(ntvs), ntvs_slot(ntvs)
+            1066                     !TVS  INTEGER :: j,n,ib,ie,ip
+            1067                     !TVS  INTEGER :: islot, iinst
+            1068                     !TVS
+            1069                     !TVS  DO j=jmin,jmax
+            1070                     !TVS    DO islot=1,nslots
+            1071                     !TVS      DO iinst=1,ninstrument
+            1072                     !TVS        IF(imin > 1) THEN
+            1073                     !TVS          ib = ntvsgrd(imin-1,j,iinst,islot)+1
+            1074                     !TVS        ELSE
+            1075                     !TVS          IF(j > 1) THEN
+            1076                     !TVS            ib = ntvsgrd(nlon,j-1,iinst,islot)+1
+            1077                     !TVS          ELSE
+            1078                     !TVS            ib = 1
+            1079                     !TVS          END IF
+            1080                     !TVS        END IF
+            1081                     !TVS        ie = ntvsgrd(imax,j,iinst,islot)
+            1082                     !TVS        n = ie - ib + 1
+            1083                     !TVS        IF(n == 0) CYCLE
+            1084                     !TVS        DO ip=ib,ie
+            1085                     !TVS          IF(nn > nobs) THEN
+            1086                     !TVS            WRITE(6,*) 'FATALERROR, NN > NTVS', NN, NTVS
+            1087                     !TVS          END IF
+            1088                     !TVS          ntvs_prof(nn)=ip
+            1089                     !TVS          ntvs_inst(nn)=iinst
+            1090                     !TVS          ntvs_slot(nn)=islot
+            1091                     !TVS          nn = nn + 1
+            1092                     !TVS        END DO
+            1093                     !TVS      END DO
+            1094                     !TVS    END DO
+            1095                     !TVS  END DO
+            1096                     !TVS  RETURN
+            1097                     !TVSEND SUBROUTINE tvs_local_sub
+            1098                     !TVS!-----------------------------------------------------------------------
+            1099                     !TVS! Data Assimilation for VARBC
+            1100                     !TVS!-----------------------------------------------------------------------
+            1101                     !TVSSUBROUTINE das_vbc(um,vm,tm,qm,qlm,psm,vbcf,vbca)
+            1102                     !TVS  USE common_mtx
+            1103                     !TVS  IMPLICIT NONE
+            1104                     !TVS  REAL(r_size),INTENT(IN) :: um(nij1,nlev)
+            1105                     !TVS  REAL(r_size),INTENT(IN) :: vm(nij1,nlev)
+            1106                     !TVS  REAL(r_size),INTENT(IN) :: tm(nij1,nlev)
+            1107                     !TVS  REAL(r_size),INTENT(IN) :: qm(nij1,nlev)
+            1108                     !TVS  REAL(r_size),INTENT(IN) :: qlm(nij1,nlev)
+            1109                     !TVS  REAL(r_size),INTENT(IN) :: psm(nij1)
+            1110                     !TVS  REAL(r_size),INTENT(INOUT) :: vbcf(maxvbc,maxtvsch,ninstrument)
+            1111                     !TVS  REAL(r_size),INTENT(OUT)   :: vbca(maxvbc,maxtvsch,ninstrument)
+            1112                     !TVS  REAL(r_sngl) :: u4(nlon,nlat,nlev)
+            1113                     !TVS  REAL(r_sngl) :: v4(nlon,nlat,nlev)
+            1114                     !TVS  REAL(r_sngl) :: t4(nlon,nlat,nlev)
+            1115                     !TVS  REAL(r_sngl) :: q4(nlon,nlat,nlev)
+            1116                     !TVS  REAL(r_sngl) :: ql4(nlon,nlat,nlev)
+            1117                     !TVS  REAL(r_sngl) :: ps4(nlon,nlat)
+            1118                     !TVS  REAL(r_size) :: u(nlon,nlat,nlev)
+            1119                     !TVS  REAL(r_size) :: v(nlon,nlat,nlev)
+            1120                     !TVS  REAL(r_size) :: t(nlon,nlat,nlev)
+            1121                     !TVS  REAL(r_size) :: q(nlon,nlat,nlev)
+            1122                     !TVS  REAL(r_size) :: ql(nlon,nlat,nlev)
+            1123                     !TVS  REAL(r_size) :: ps(nlon,nlat)
+            1124                     !TVS  REAL(r_size) :: p_full(nlon,nlat,nlev)
+            1125                     !TVS  REAL(r_size),ALLOCATABLE :: hx(:,:,:,:)
+            1126                     !TVS  REAL(r_size),ALLOCATABLE :: pred(:,:,:,:,:)
+            1127                     !TVS  INTEGER,ALLOCATABLE :: tmpqc(:,:,:)
+            1128                     !TVS  REAL(r_size),ALLOCATABLE :: tmpwgt(:,:,:,:)
+            1129                     !TVS  REAL(r_size) :: a(maxvbc,maxvbc)
+            1130                     !TVS  REAL(r_size) :: b(maxvbc)
+            1131                     !TVS  REAL(r_size) :: ainv(maxvbc,maxvbc)
+            1132                     !TVS  INTEGER:: ntvschan1(maxtvsch,ninstrument)
+            1133                     !TVS  INTEGER:: i,j,k,n,islot,nn
+            1134                     !TVS
+            1135                     !TVS  PRINT *,'Hello from das_vbc'
+            1136                     !TVS
+            1137                     !TVS  IF(ntvs == 0) THEN
+            1138                     !TVS    PRINT *,'No radiance data: das_vbc skipped..'
+            1139                     !TVS!$OMP PARALLEL WORKSHARE
+            1140                     !TVS    vbca = vbcf
+            1141                     !TVS!$OMP END PARALLEL WORKSHARE
+            1142                     !TVS    RETURN
+            1143                     !TVS  END IF
+            1144                     !TVS
+            1145                     !TVS  CALL gather_grd_mpi(0,um,vm,tm,qm,qlm,psm,u4,v4,t4,q4,ql4,ps4)
+            1146                     !TVS  n = nlon*nlat*nlev
+            1147                     !TVS  CALL MPI_BARRIER(MPI_COMM_WORLD,i)
+            1148                     !TVS  CALL MPI_BCAST(u4(1,1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1149                     !TVS  CALL MPI_BCAST(v4(1,1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1150                     !TVS  CALL MPI_BCAST(t4(1,1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1151                     !TVS  CALL MPI_BCAST(q4(1,1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1152                     !TVS  CALL MPI_BCAST(ql4(1,1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1153                     !TVS  n = nlon*nlat
+            1154                     !TVS  CALL MPI_BCAST(ps4(1,1),n,MPI_REAL,0,MPI_COMM_WORLD,i)
+            1155                     !TVS!$OMP PARALLEL WORKSHARE
+            1156                     !TVS  u = REAL(u4,r_size)
+            1157                     !TVS  v = REAL(v4,r_size)
+            1158                     !TVS  t = REAL(t4,r_size)
+            1159                     !TVS  q = REAL(q4,r_size)
+            1160                     !TVS  ql = REAL(ql4,r_size)
+            1161                     !TVS  ps = REAL(ps4,r_size)
+            1162                     !TVS!$OMP END PARALLEL WORKSHARE
+            1163                     !TVS  CALL calc_pfull(ps,p_full)
+            1164                     !TVS
+            1165                     !TVS  ALLOCATE( hx(maxtvsch,maxtvsprof,ninstrument,nslots) )
+            1166                     !TVS  ALLOCATE( pred(maxvbc,maxtvsch,maxtvsprof,ninstrument,nslots) )
+            1167                     !TVS  ALLOCATE( tmpqc(maxtvsch,maxtvsprof,ninstrument) )
+            1168                     !TVS  ALLOCATE( tmpwgt(nlev,maxtvsch,maxtvsprof,ninstrument) )
+            1169                     !TVS  DO islot=1,nslots
+            1170                     !TVS!    IF(SUM(ntvsprofslots(:,islot)) == 0) CYCLE
+            1171                     !TVS    ntvsprof(:) = ntvsprofslots(:,islot)
+            1172                     !TVS    CALL Trans_XtoY_tvs(u,v,t,q,ql,ps,p_full, &
+            1173                     !TVS      & tvslon(:,:,islot),tvslat(:,:,islot),tvszenith(:,:,islot),&
+            1174                     !TVS      & tvsskin(:,:,islot),tvsstmp(:,:,islot),tvsclw(:,:,islot),&
+            1175                     !TVS      & tvsemis(:,:,:,islot),tmpqc,hx(:,:,:,islot),tmpwgt,pred(:,:,:,:,islot))
+            1176                     !TVS  END DO
+            1177                     !TVS  DEALLOCATE(tmpqc,tmpwgt)
+            1178                     !TVS
+            1179                     !TVS!$OMP PARALLEL PRIVATE(j,k,n,a,b,ainv)
+            1180                     !TVS!$OMP WORKSHARE
+            1181                     !TVS  vbca = 0.0d0
+            1182                     !TVS!$OMP END WORKSHARE
+            1183                     !TVS!$OMP DO SCHEDULE(DYNAMIC)
+            1184                     !TVS  DO k=1,ninstrument
+            1185                     !TVS    DO j=1,maxtvsch
+            1186                     !TVS      !
+            1187                     !TVS      ! Parallel processing
+            1188                     !TVS      !
+            1189                     !TVS      IF(MOD(j+maxtvsch*(k-1)-1,nprocs) /= myrank) CYCLE
+            1190                     !TVS      !
+            1191                     !TVS      ! DATA NUMBER
+            1192                     !TVS      !
+            1193                     !TVS      ntvschan(j,k) = SUM(tvsqc(j,:,k,:))
+            1194                     !TVS      IF(msw_vbc .AND. ntvschan(j,k) /= 0 ) THEN
+            1195                     !TVS        PRINT '(3A,I3,A,I6)',' >> VBC executed for instrument,channel,ntvsl: ',&
+            1196                     !TVS                            & tvsname(k),',',tvsch(j,k),',',ntvschan(j,k)
+            1197                     !TVS        CALL vbc_local(j,k,ntvschan(j,k),hx,pred,a,b)
+            1198                     !TVS        CALL mtx_inv(maxvbc,a,ainv)
+            1199                     !TVS        vbca(:,j,k) = vbcf(:,j,k)
+            1200                     !TVS        DO n=1,maxvbc
+            1201                     !TVS          vbca(:,j,k) = vbca(:,j,k) - ainv(:,n)*b(n) !ATTN: sign for beta
+            1202                     !TVS        END DO
+            1203                     !TVS      ELSE
+            1204                     !TVS        PRINT '(3A,I3,A,I6)',' !! NO VBC executed for instrument,channel,ntvsl: ',&
+            1205                     !TVS                            & tvsname(k),',',tvsch(j,k),',',ntvschan(j,k)
+            1206                     !TVS        vbca(:,j,k) = vbcf(:,j,k)
+            1207                     !TVS      END IF
+            1208                     !TVS    END DO
+            1209                     !TVS  END DO
+            1210                     !TVS!$OMP END DO
+            1211                     !TVS!$OMP WORKSHARE
+            1212                     !TVS  vbcf = vbca
+            1213                     !TVS  ntvschan1 = ntvschan
+            1214                     !TVS!$OMP END WORKSHARE
+            1215                     !TVS!$OMP END PARALLEL
+            1216                     !TVS  DEALLOCATE(hx,pred)
+            1217                     !TVS  n = maxvbc*maxtvsch*ninstrument
+            1218                     !TVS  CALL MPI_BARRIER(MPI_COMM_WORLD,j)
+            1219                     !TVS  CALL MPI_ALLREDUCE(vbcf,vbca,n,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,j)
+            1220                     !TVS  n = maxtvsch*ninstrument
+            1221                     !TVS  CALL MPI_BARRIER(MPI_COMM_WORLD,j)
+            1222                     !TVS  CALL MPI_ALLREDUCE(ntvschan1,ntvschan,n,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,j)
+            1223                     !TVS
+            1224                     !TVS  RETURN
+            1225                     !TVSEND SUBROUTINE das_vbc
+            1226                     !TVS!-----------------------------------------------------------------------
+            1227                     !TVS!  (in) ichan: channnel
+            1228                     !TVS!  (in) iinst: sensor
+            1229                     !TVS!  (out) a = B_beta^-1 + p R^-1 p^T
+            1230                     !TVS!  (out) b = p R^-1 d
+            1231                     !TVS!-----------------------------------------------------------------------
+            1232                     !TVSSUBROUTINE vbc_local(ichan,iinst,ntvsl,hx,pred,a,b)
+            1233                     !TVS  IMPLICIT NONE
+            1234                     !TVS  INTEGER,PARAMETER :: msw=1
+            1235                     !TVS  INTEGER,PARAMETER :: nmin=400
+            1236                     !TVS  INTEGER,INTENT(IN) :: ichan,iinst,ntvsl
+            1237                     !TVS  REAL(r_size),INTENT(IN) :: hx(maxtvsch,maxtvsprof,ninstrument,nslots)
+            1238                     !TVS  REAL(r_size),INTENT(IN) :: pred(maxvbc,maxtvsch,maxtvsprof,ninstrument,nslots)
+            1239                     !TVS  REAL(r_size),INTENT(OUT) :: a(maxvbc,maxvbc)
+            1240                     !TVS  REAL(r_size),INTENT(OUT) :: b(maxvbc)
+            1241                     !TVS  REAL(r_size) :: dep,dep0
+            1242                     !TVS  REAL(r_size) :: bias,bias0
+            1243                     !TVS  REAL(r_size) :: r,tmp
+            1244                     !TVS  INTEGER:: islot, iprof, i,j,n
+            1245                     !TVS
+            1246                     !TVS  a = 0.0d0
+            1247                     !TVS  b = 0.0d0
+            1248                     !TVS  dep = 0.0d0
+            1249                     !TVS  dep0 = 0.0d0
+            1250                     !TVS  bias = 0.0d0
+            1251                     !TVS  bias0 = 0.0d0
+            1252                     !TVS  n = 0
+            1253                     !TVS  DO islot=1,nslots
+            1254                     !TVS    DO iprof=1,maxtvsprof
+            1255                     !TVS      IF(tvsqc(ichan,iprof,iinst,islot)/=1) CYCLE
+            1256                     !TVS      !
+            1257                     !TVS      ! R
+            1258                     !TVS      !
+            1259                     !TVS      r = tvserr(ichan,iprof,iinst,islot)**2
+            1260                     !TVS      !
+            1261                     !TVS      ! p R^-1 p^T
+            1262                     !TVS      !
+            1263                     !TVS      DO j=1,maxvbc
+            1264                     !TVS        DO i=1,maxvbc
+            1265                     !TVS          a(i,j) = a(i,j) &
+            1266                     !TVS               & + pred(i,ichan,iprof,iinst,islot) &
+            1267                     !TVS               & * pred(j,ichan,iprof,iinst,islot) / r
+            1268                     !TVS        END DO
+            1269                     !TVS      END DO
+            1270                     !TVS      !
+            1271                     !TVS      ! B_beta^-1
+            1272                     !TVS      !
+            1273                     !TVS      IF(msw == 1) THEN ! Y.Sato
+            1274                     !TVS        IF(ntvsl < nmin) THEN
+            1275                     !TVS          tmp = REAL(nmin,r_size) / r
+            1276                     !TVS
+            1277                     !TVS        ELSE
+            1278                     !TVS          tmp = (REAL(ntvsl,r_size) &
+            1279                     !TVS            & / (LOG10(REAL(ntvsl,r_size)/REAL(nmin,r_size))+1.0d0)) / r
+            1280                     !TVS        END IF
+            1281                     !TVS      ELSE IF(msw == 2) THEN ! D.Dee
+            1282                     !TVS        tmp = REAL(ntvsl,r_size) / r
+            1283                     !TVS      ELSE ! Constant
+            1284                     !TVS        tmp = 100.0d0
+            1285                     !TVS      END IF
+            1286                     !TVS      DO i=1,maxvbc
+            1287                     !TVS        a(i,i) = a(i,i) + tmp
+            1288                     !TVS      END DO
+            1289                     !TVS      !
+            1290                     !TVS      ! p R^-1 d
+            1291                     !TVS      !
+            1292                     !TVS      b(:) = b(:) + pred(:,ichan,iprof,iinst,islot) / r &
+            1293                     !TVS                & *(tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot))
+            1294                     !TVS      bias = bias+tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot)
+            1295                     !TVS      dep = dep+(tvsdat(ichan,iprof,iinst,islot)-hx(ichan,iprof,iinst,islot))**2
+            1296                     !TVS      bias0= bias0+tvsdep(ichan,iprof,iinst,islot)
+            1297                     !TVS      dep0= dep0+tvsdep(ichan,iprof,iinst,islot)**2
+            1298                     !TVS      n = n+1
+            1299                     !TVS    END DO
+            1300                     !TVS  END DO
+            1301                     !TVS
+            1302                     !TVS  dep = SQRT(dep / REAL(n,r_size))
+            1303                     !TVS  dep0 = SQRT(dep0 / REAL(n,r_size))
+            1304                     !TVS  bias = bias / REAL(n,r_size)
+            1305                     !TVS  bias0 = bias0 / REAL(n,r_size)
+            1306                     !TVS  PRINT '(2A,I3,4F12.4)',' >> D monit: ',tvsname(iinst),tvsch(ichan,iinst),bias0,bias,dep0,dep
+            1307                     !TVS
+            1308                     !TVS  RETURN
+            1309                     !TVSEND SUBROUTINE vbc_local
+            1310                     
+            1311                     END MODULE letkf_tools
+
+ Diagnostic messages: program name(letkf_tools)
+   jwd8220o-i  "letkf_tools.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(das_letkf)
+   jwd2006i-i  "letkf_tools.f90", line 94: 'swgh' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 94: 'sfnc' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 94: 'dist_zerog' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 94: 'distg' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 94: 'sigma_g' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 95: 'wgh_nij2map' is declared but never referenced.
+   jwd8209o-i  "letkf_tools.f90", line 189: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "letkf_tools.f90", line 197: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8201o-i  "letkf_tools.f90", line 433: Invariant expression within loop is moved outside loop.
+   jwd8201o-i  "letkf_tools.f90", line 444: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "letkf_tools.f90", line 496: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf_tools.f90", line 496: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 503: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 509: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 510: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf_tools.f90", line 512: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf_tools.f90", line 533: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 540: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 546: Method of calculating sum or product is changed.
+   jwd8208o-i  "letkf_tools.f90", line 547: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf_tools.f90", line 549: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(obs_local)
+   jwd2006i-i  "letkf_tools.f90", line 740: 'tmpwgt' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 741: 'tmpqc' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 744: 'ichan' is declared but never referenced.
+   jwd2006i-i  "letkf_tools.f90", line 744: 'im' is declared but never referenced.
+   jwd8206o-i  "letkf_tools.f90", line 970: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "letkf_tools.f90", line 970: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd2005i-w  "letkf_tools.f90", line 1017: 'tvnn' is used but never set.
+
+ Procedure information
+   Lines      : 1311
+   Statements : 751
+   Stack(byte): 62400
+   Prefetch num: 98
+
+ Total information
+   Procedures       : 1
+   Total lines      : 1311
+   Total statements : 751
+   Total stack(byte): 62400
+   Total prefetch num: 98
+

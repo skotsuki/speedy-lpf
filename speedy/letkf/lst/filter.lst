@@ -1,0 +1,620 @@
+
+ Fujitsu Fortran Version 2.0.0  Sun Apr 21 15:34:04 2019
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF/speedy/LTERPLUT_letkf
+   Source file       : filter.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "filter"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE filter
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Module for LETKF with SPEEDY
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   06/XX 2018 P. Andrew  :: /data6/apensoneault/TEST-LETKF-EXPERIMENT/speedy/backup_letkf_7_26/old/filter5.f90
+               8                     !   04/21 2019 S. Kotsuki :: edits for SPEEDY-LPF
+               9                     !
+              10                     !=======================================================================
+              11                       USE common
+              12                       USE common_mpi
+              13                       USE common_speedy
+              14                       USE common_mpi_speedy
+              15                       USE common_letkf
+              16                       USE letkf_obs
+              17                       IMPLICIT NONE
+              18                     
+              19                       PRIVATE
+              20                       !SK201904!PUBLIC :: Fr_mat, Fr_vec,  LANCZOS_FILTER_mat, LANCZOS_FILTER_vec,LANCZOS_FILTER_mat_naive, LANCZOS_FILTER_vec_naive
+              21                       PUBLIC :: Fr_mat, Fr_vec,  LANCZOS_FILTER_mat, LANCZOS_FILTER_vec
+              22                     
+              23                       INTEGER, PARAMETER :: ISC=1
+              24                       INTEGER, PARAMETER :: NTRUN=30, MTRUN=30, IX=96, IY=24
+              25                       INTEGER, PARAMETER :: NX=NTRUN+2, MX=MTRUN+1 , MXNX=MX*NX,MX2=2*MX
+              26                       INTEGER, PARAMETER :: IL=2*IY, NTRUN1=NTRUN+1
+              27                       INTEGER, PARAMETER :: NXP=NX+1 , MXP=ISC*MTRUN+1, LMAX=MXP+NX-2
+              28                       INTEGER, parameter      :: a=20 !<-- AP 6/18/2018 - maximum number of coefficients
+              29                       REAL(r_size), parameter :: fx=1.0/5.0 !<-- AP 6/18/2018 - cuttoff frequency x (what should this be?)
+              30                       REAL(r_size), parameter :: fy=1.0/5.0 !<-- AP 6/19/2018 - cuttoff frequency y
+              31                       INTEGER, PARAMETER :: L=21, M=21, LDIM=nlon
+              32                     CONTAINS
+              33                     
+              34                       REAL(r_size) FUNCTION TSINC(X,k)
+              35                       IMPLICIT NONE
+              36                       REAL(r_size), INTENT(IN) :: X
+              37                       INTEGER, INTENT(IN) :: k
+              38     1                 IF(X==0) THEN
+              39     1                   TSINC=1
+              40     1                 ELSEIF(k<a) then
+              41     1                   TSINC=SIN(X)/X
+              42     1                 ELSE
+              43     1                   TSINC=0
+              44     1                 END IF
+              45                       RETURN
+              46                       END FUNCTION TSINC
+              47                     
+              48                       REAL(r_size) FUNCTION SINC(X)
+              49                       IMPLICIT NONE
+              50                       REAL(r_size), INTENT(IN) :: X
+              51     1                 IF(X==0) THEN
+              52     1                   SINC=1
+              53     1                 ELSE
+              54     1                   SINC=SIN(X)/X
+              55     1                 END IF
+              56                       RETURN
+              57                       END FUNCTION SINC
+              58                     
+              59                     
+              60                       REAL(r_size) FUNCTION BESINC(X)
+              61                       IMPLICIT NONE
+              62                       REAL(r_size), INTENT(IN) :: X
+              63     1                 IF(X==0) THEN
+              64     1                   BESINC=1/2
+              65     1                 ELSE
+              66     1                   BESINC=BESSEL_JN(1,X)/X
+              67     1                 END IF
+              68                       RETURN
+              69                       END FUNCTION BESINC
+              70                     
+              71                       SUBROUTINE Fr_mat(trans,trans_filt)
+              72                       IMPLICIT NONE
+              73                       REAL(r_size), INTENT(IN) :: trans(nlon,nlat,nbv,nbv)
+              74                       REAL(r_size), INTENT(OUT) :: trans_filt(nlon,nlat,nbv,nbv)
+              75                       INTEGER :: i,j,IER,LENSAV,LENWRK
+              76                       real(r_size), allocatable, dimension ( : ) :: WORK
+              77                       real(r_size), allocatable, dimension ( : ) :: WSAVE
+              78                       COMPLEX(r_size) :: fourier_trans(nlon,nlat,nbv,nbv)
+              79                       LENSAV=MAX(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,&
+              80                              L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M+int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+              81                       LENWRK=max(LDIM*M,M*(L+1),2*M*L)
+              82                       ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+              83                       CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+              84                       trans_filt=0.0d0
+              85                       fourier_trans=0.0d0
+              86     1                 do i=1,nbv
+              87     2                   do j=1,nbv
+              88     2                     fourier_trans(:,:,i,j)=cmplx(trans(:,:,i,j))
+              89     2                     CALL CFFT2F (LDIM, L, M, fourier_trans(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+              90     2                     CALL CFFT2B (LDIM, L, M, fourier_trans(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+              91     2                     trans_filt(:,:,i,j)=REAL(fourier_trans(:,:,i,j),r_size)
+              92     2                   end do
+              93     1                 end do
+              94                       deallocate (WORK)
+              95                       deallocate (WSAVE)
+              96                       RETURN
+              97                       END SUBROUTINE Fr_mat
+              98                     
+              99                       SUBROUTINE Fr_vec(vec,vec_filt)
+             100                       IMPLICIT NONE
+             101                       REAL(r_size), INTENT(IN) :: vec(nlon,nlat,nbv)
+             102                       REAL(r_size), INTENT(OUT) :: vec_filt(nlon,nlat,nbv)
+             103                       INTEGER :: i,IER,LENSAV,LENWRK
+             104                       real(r_size), allocatable, dimension ( : ) :: WORK
+             105                       real(r_size), allocatable, dimension ( : ) :: WSAVE
+             106                       COMPLEX(r_size) :: fourier_vec(nlon,nlat,nbv)
+             107                       LENSAV=MAX(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,&
+             108                              L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M+int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+             109                       LENWRK=max(LDIM*M,M*(L+1),2*M*L)
+             110                       ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+             111                       CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+             112                       vec_filt=0.0d0
+             113                       fourier_vec=0.0d0
+             114     1                 do i=1,nbv
+             115     1                   fourier_vec(:,:,i)=cmplx(vec(:,:,i))
+             116     1                   CALL CFFT2F (LDIM, L, M, fourier_vec(:,:,i), WSAVE, LENSAV, WORK, LENWRK, IER)
+             117     1                   CALL CFFT2B (LDIM, L, M, fourier_vec(:,:,i), WSAVE, LENSAV, WORK, LENWRK, IER)
+             118     1                   vec_filt(:,:,i)=REAL(fourier_vec(:,:,i),r_size)
+             119     1                 end do
+             120                       deallocate (WORK)
+             121                       deallocate (WSAVE)
+             122                       RETURN
+             123                       END SUBROUTINE Fr_vec
+             124                     
+             125                     
+             126                     
+             127                     
+             128                     
+             129                     !=======================================================================================
+             130                       SUBROUTINE LANCZOS_FILTER_mat(trans,trans_filt)
+             131                       IMPLICIT NONE
+             132                       REAL(r_size), INTENT(IN) :: trans(nlon,nlat,nbv,nbv)
+             133                       REAL(r_size), INTENT(OUT) :: trans_filt(nlon,nlat,nbv,nbv)
+             134                       REAL(r_size) :: u,upp,ump,umm,upm
+             135                       INTEGER :: i,j,k,n,o
+             136                       INTEGER :: IER,LENSAV,LENWRK
+             137                       real(r_size), allocatable, dimension ( : ) :: WORK
+             138                       real(r_size), allocatable, dimension ( : ) :: WSAVE
+             139                       COMPLEX(r_size) :: fourier_trans(nlon,nlat,nbv,nbv)
+             140                       COMPLEX(r_size) :: fourier_filt(nlon,nlat,nbv,nbv)
+             141                       real(r_size) :: weight(nlon,nlat)
+             142                       COMPLEX(r_size) :: fourier_weight(nlon,nlat)
+             143                       LENSAV=MAX(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,&
+             144                              L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M+int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+             145                       LENWRK=max(LDIM*M,M*(L+1),2*M*L)
+             146                       ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+             147                       CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+             148                       trans_filt=0.0d0
+             149                       fourier_filt=0.0d0
+             150                       fourier_trans=0.0d0
+             151                     
+             152     1                 do i=1,nbv
+             153     2                   do j=1,nbv
+             154     2                     fourier_trans(:,:,i,j)=cmplx(trans(:,:,i,j))
+             155     2                     CALL CFFT2F (LDIM, L, M, fourier_trans(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+             156     2                   end do
+             157     1                 end do
+             158                     
+             159                     !  do k=0,M/2
+             160                     !   do n=0,L/2
+             161                     !     uplus=sqrt((fx*n)**2+(fy*k)**2)
+             162                     !     uminus
+             163                     !     weight(n+1,k+1)=real(L,r_size)*real(M,r_size)*fx*fy*SINC(PI*real(k)/real(M))*SINC(PI*REAL(n)/REAL(L))*BESSEL_JN(1,2*PI*u)/u
+             164                     !     if(k<M/2) then
+             165                     !       if (k<M/2) then
+             166                     !        weight(n+1,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             167                     !       end if
+             168                     !     end if
+             169                     !     weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             170                     !   end do
+             171                     ! end do
+             172                     !  do n=0,M-1
+             173                     !    do k=0,L-1
+             174                     !      u=sqrt((fx*n)**2+(fy*k)**2)
+             175                     !      weight(n+1,k+1)=fx*fy*SINC(PI*real(k)/real(M))*SINC(PI*REAL(n)/REAL(L))*2*PI*BESINC(2*PI*u)
+             176                     !    end do
+             177                     !  end do
+             178                     
+             179     1                 do n=0,M-1
+             180     2                   do k=0,L-1
+             181     2                     upp=sqrt((fx*(n))**2+(fy*(k))**2)
+             182     2                     weight(n+1,k+1)=fx*fy*TSINC(PI*real(k)/real(M),k)*TSINC(PI*REAL(n)/REAL(L),n)*2*PI*BESINC(2*PI*upp)
+             183     2                   end do
+             184     1                 end do
+             185                       fourier_weight(:,:)=cmplx(weight(:,:))
+             186                       CALL CFFT2F (LDIM, L, M,fourier_weight, WSAVE, LENSAV, WORK, LENWRK, IER)
+             187                     
+             188                     
+             189                     !  do n=0,(M/2-1)
+             190                     !    do k=0,(L/2-1)
+             191                     !      upp=sqrt((fx*n)**2+(fy*k)**2)
+             192                     !      upm=sqrt((fx*n)**2+(fy*(k-M/2))**2)
+             193                     !      ump=sqrt((fx*(n-L/2))**2+(fy*k)**2)
+             194                     !      umm=sqrt((fx*(n-L/2))**2+(fy*(k-M/2))**2)
+             195                     !      weight(n+1,k+1)=fx*fy*SINC(PI*k/M)*SINC(PI*n/L)*2*PI*BESINC(2*PI*upp)
+             196                     !      weight(n+1,M/2-k)=fx*fy*SINC(PI*(k-M/2)/M)*SINC(PI*n/L)*2*PI*BESINC(2*PI*upm)
+             197                     !      weight(L/2-n,k+1)=fx*fy*SINC(PI*k/M)*SINC(PI*(n-L/2)/L)*2*PI*BESINC(2*PI*ump)
+             198                     !      weight(L/2-n,M/2-k)=fx*fy*SINC(PI*(k-M/2)/M)*SINC(PI*(n-L/2)/L)*2*PI*BESINC(2*PI*umm)
+             199                     !    end do
+             200                     !  end do
+             201                     
+             202     1                 do i=1,nbv
+             203     2                   do j=1,nbv
+             204     2                     fourier_filt(:,:,i,j)=fourier_trans(:,:,i,j)*fourier_weight(:,:)/abs(fourier_weight(1,1))
+             205     2                     CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+             206     2                     trans_filt(:,:,i,j)=REAL(fourier_filt(:,:,i,j),r_size)
+             207     2                   end do
+             208     1                 end do
+             209                       !PRINT *, maxval(abs(trans_filt(:,:,:,:)-trans(:,:,:,:))), minval(abs(trans_filt(:,:,:,:)-trans(:,:,:,:)))
+             210                     
+             211                     
+             212                       deallocate (WORK)
+             213                       deallocate (WSAVE)
+             214                       RETURN
+             215                       END SUBROUTINE LANCZOS_FILTER_mat
+             216                     
+             217                     !=======================================================================================
+             218                       SUBROUTINE LANCZOS_FILTER_vec(vec,vec_filt)
+             219                       IMPLICIT NONE
+             220                       REAL(r_size), INTENT(IN) :: vec(nlon,nlat,nbv)
+             221                       REAL(r_size), INTENT(OUT) :: vec_filt(nlon,nlat,nbv)
+             222                       COMPLEX(r_size) :: fourier_vec(nlon,nlat,nbv)
+             223                       COMPLEX(r_size) :: fourier_filt(nlon,nlat,nbv)
+             224                       REAL(r_size) :: u,upp,ump,umm,upm
+             225                       INTEGER :: i,j,k,n,o
+             226                       INTEGER :: IER,LENSAV,LENWRK
+             227                       real(r_size), allocatable, dimension ( : ) :: WORK
+             228                       real(r_size), allocatable, dimension ( : ) :: WSAVE
+             229                       real(r_size) :: weight(nlon,nlat)
+             230                       COMPLEX(r_size) :: fourier_weight(nlon,nlat)
+             231                       LENSAV=max(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M&
+             232                                  +int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+             233                       LENWRK=max(LDIM*M,M*(L+1),2*L*M)
+             234                       ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+             235                       CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+             236                       vec_filt=0.0d0
+             237                       fourier_vec=cmplx(0.0d0)
+             238                       fourier_filt=cmplx(0.0d0)
+             239                     
+             240     1                 do i=1,nbv
+             241     1                   fourier_vec(:,:,i)=cmplx(vec(:,:,i))
+             242     1                   CALL CFFT2F (LDIM, L, M,fourier_vec(:,:,i) , WSAVE, LENSAV, WORK, LENWRK, IER)
+             243     1                 end do
+             244                     
+             245                     !  do n=1,M/2
+             246                     !    do k=1,L/2
+             247                     !      upp=sqrt((fx*(n-1))**2+(fy*(k-1))**2)
+             248                     !      upm=sqrt((fx*(n-1))**2+(fy*(M/2-k))**2)
+             249                     !      ump=sqrt((fx*(L/2-n))**2+(fy*(k-1))**2)
+             250                     !      umm=sqrt((fx*(L/2-n))**2+(fy*(M/2-k))**2)
+             251                     !      weight(n,k)=fx*fy*SINC(PI*real(k-1)/real(M))*SINC(PI*REAL(n-1)/REAL(L))*2*PI*BESINC(2*PI*upp)
+             252                     !      weight(n,M/2-k)=fx*fy*SINC(PI*real(M/2-k)/real(M))*SINC(PI*REAL(n-1)/REAL(L))*2*PI*BESINC(2*PI*upm)
+             253                     !      weight(L/2-n,k)=fx*fy*SINC(PI*real(k-1)/real(M))*SINC(PI*REAL(L/2-n)/REAL(L))*2*PI*BESINC(2*PI*ump)
+             254                     !      weight(L/2-n,M/2-k)=fx*fy*SINC(PI*real(M/2-k)/real(M))*SINC(PI*REAL(L/2-n)/REAL(L))*2*PI*BESINC(2*PI*umm)
+             255                     !    end do
+             256                     !  end do
+             257                     
+             258                     !!!  do n=1,(M/2-1)
+             259                     !!!    do k=1,(L/2-1)
+             260                     !!!      upp=sqrt((fx*(n-1))**2+(fy*(k-1))**2)
+             261                     !!!      upm=sqrt((fx*(n-1))**2+(fy*(M/2-k))**2)
+             262                     !!!      ump=sqrt((fx*(L/2-n))**2+(fy*(k-1))**2)
+             263                     !!!      umm=sqrt((fx*(L/2-n))**2+(fy*(M/2-k))**2)
+             264                     !!!      weight(n,k)=fx*fy*SINC(PI*(k-1)/M)*SINC(PI*(n-1)/L)*2*PI*BESINC(2*PI*upp)
+             265                     !!!      weight(n,M/2-k)=fx*fy*SINC(PI*(M/2-k)/M)*SINC(PI*(n-1)/L)*2*PI*BESINC(2*PI*upm)
+             266                     !!!      weight(L/2-n,k)=fx*fy*SINC(PI*(k-1)/M)*SINC(PI*(L/2-n)/L)*2*PI*BESINC(2*PI*ump)
+             267                     !!!      weight(L/2-n,M/2-k)=fx*fy*SINC(PI*(M/2-k)/M)*SINC(PI*(L/2-n)/L)*2*PI*BESINC(2*PI*umm)
+             268                     !!!    end do
+             269                     !!!  end do
+             270                     
+             271                     !  do n=0,(M/2-1)
+             272                     !    do k=0,(L/2-1)
+             273                     !      upp=sqrt((fx*n)**2+(fy*k)**2)
+             274                     !      upm=sqrt((fx*n)**2+(fy*(k-M/2))**2)
+             275                     !      ump=sqrt((fx*(n-L/2))**2+(fy*k)**2)
+             276                     !      umm=sqrt((fx*(n-L/2))**2+(fy*(k-M/2))**2)
+             277                     !      weight(n+1,k+1)=fx*fy*SINC(PI*k/M)*SINC(PI*n/L)*2*PI*BESINC(2*PI*upp)
+             278                     !      weight(n+1,M/2-k)=fx*fy*SINC(PI*(k-M/2)/M)*SINC(PI*n/L)*2*PI*BESINC(2*PI*upm)
+             279                     !      weight(L/2-n,k+1)=fx*fy*SINC(PI*k/M)*SINC(PI*(n-L/2)/L)*2*PI*BESINC(2*PI*ump)
+             280                     !      weight(L/2-n,M/2-k)=fx*fy*SINC(PI*(k-M/2)/M)*SINC(PI*(n-L/2)/L)*2*PI*BESINC(2*PI*umm)
+             281                     !    end do
+             282                     !  end do
+             283                     
+             284                     
+             285     1                 do n=0,M-1
+             286     2                   do k=0,L-1
+             287     2                     upp=sqrt((fx*(n))**2+(fy*(k))**2)
+             288     2                     weight(n+1,k+1)=fx*fy*TSINC(PI*real(k)/real(M),k)*TSINC(PI*REAL(n)/REAL(L),n)*2*PI*BESINC(2*PI*upp)
+             289     2                   end do
+             290     1                 end do
+             291                     
+             292                     
+             293                     
+             294                       fourier_weight(:,:)=cmplx(weight(:,:))
+             295                     
+             296                       CALL CFFT2F (LDIM, L, M,fourier_weight, WSAVE, LENSAV, WORK, LENWRK, IER)
+             297     1                 do i=1,nbv
+             298     1                   fourier_filt(:,:,i)=fourier_vec(:,:,i)*fourier_weight(:,:)/abs(fourier_weight(1,1))
+             299     1                   CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i), WSAVE, LENSAV, WORK, LENWRK, IER)
+             300     1                   vec_filt(:,:,i)=REAL(fourier_filt(:,:,i),r_size)
+             301     1                 end do
+             302                       deallocate (WORK)
+             303                       deallocate (WSAVE)
+             304                       RETURN
+             305                       END SUBROUTINE LANCZOS_FILTER_vec
+             306                     
+             307                     
+             308                     !SK201904!  SUBROUTINE LANCZOS_FILTER_mat_naive(trans,trans_filt)
+             309                     !SK201904!  IMPLICIT NONE
+             310                     !SK201904!  REAL(r_size), INTENT(IN) :: trans(nlon,nlat,nbv,nbv)
+             311                     !SK201904!  REAL(r_size), INTENT(OUT) :: trans_filt(nlon,nlat,nbv,nbv)
+             312                     !SK201904!  REAL(r_size) :: u
+             313                     !SK201904!  INTEGER :: i,j,k,n,o
+             314                     !SK201904!  INTEGER :: IER,LENSAV,LENWRK
+             315                     !SK201904!  real(r_size), allocatable, dimension ( : ) :: WORK
+             316                     !SK201904!  real(r_size), allocatable, dimension ( : ) :: WSAVE
+             317                     !SK201904!  COMPLEX(r_size) :: fourier_trans(nlon,nlat,nbv,nbv)
+             318                     !SK201904!  COMPLEX(r_size) :: fourier_filt(nlon,nlat,nbv,nbv)
+             319                     !SK201904!  real(r_size) :: weight(nlon,nlat)
+             320                     !SK201904!  COMPLEX(r_size) :: fourier_weight(nlon,nlat)
+             321                     !SK201904!  LENSAV=MAX(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,&
+             322                     !SK201904!         L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M+int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+             323                     !SK201904!  LENWRK=max(LDIM*M,M*(L+1),2*M*L)
+             324                     !SK201904!  ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+             325                     !SK201904!  CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+             326                     !SK201904!  trans_filt=0.0d0
+             327                     !SK201904!  fourier_filt=0.0d0
+             328                     !SK201904!  fourier_trans=0.0d0
+             329                     !SK201904!
+             330                     !SK201904!  do i=1,nbv
+             331                     !SK201904!    do j=1,nbv
+             332                     !SK201904!      fourier_trans(:,:,i,j)=cmplx(trans(:,:,i,j))
+             333                     !SK201904!      CALL CFFT2F (LDIM, L, M, fourier_trans(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+             334                     !SK201904!    end do
+             335                     !SK201904!  end do
+             336                     !SK201904!!  do k=0,M/2
+             337                     !SK201904!!    do n=0,L/2
+             338                     !SK201904!!      if(k<M/2) then
+             339                     !SK201904!!        if (k<M/2) then
+             340                     !SK201904!!          weight(n+1,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             341                     !SK201904!!        end if
+             342                     !SK201904!!      end if
+             343                     !SK201904!!      weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             344                     !SK201904!!    end do
+             345                     !SK201904!!  end do
+             346                     !SK201904!! do k=1,M/2
+             347                     !SK201904!!   do n=1,L/2
+             348                     !SK201904!!    weight(n,k)=4*M*L*fy*fx*sinc(2*PI*fx*(k-1))*sinc(2*PI*fy*(n-1))*sinc(pi*(k-1)/(M/2))*sinc(pi*(n-1)/(L/2))
+             349                     !SK201904!!    weight(L-n,k)=4*M*L*fy*fx*sinc(2*PI*fx*(k-1))*sinc(2*PI*fy*(-n))*sinc(pi*(k-1)/(M/2))*sinc(pi*(-n)/(L/2))
+             350                     !SK201904!!    weight(n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*(-k))*sinc(2*PI*fy*(n-1))*sinc(pi*(-k)/(M/2))*sinc(pi*(n-1)/(L/2))
+             351                     !SK201904!!    weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*(-k))*sinc(2*PI*fy*(-n))*sinc(pi*(-k)/(M/2))*sinc(pi*(-n)/(L/2))
+             352                     !SK201904!!    weight(n+1,k+1)=4*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M))*sinc(pi*n/(L))
+             353                     !SK201904!!   end do
+             354                     !SK201904!! end do
+             355                     !SK201904!
+             356                     !SK201904!!  do k=0,M/2
+             357                     !SK201904!!    do n=0,L/2
+             358                     !SK201904!!      if(k<M/2) then
+             359                     !SK201904!!        if (n<L/2) then
+             360                     !SK201904!!          weight(n+1,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             361                     !SK201904!!        end if
+             362                     !SK201904!!        weight(n+1,L-k)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             363                     !SK201904!!      end if
+             364                     !SK201904!!      if (n<L/2) then
+             365                     !SK201904!!        weight(L-n,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             366                     !SK201904!!      end if
+             367                     !SK201904!!      weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             368                     !SK201904!!    end do
+             369                     !SK201904!!  end do
+             370                     !SK201904!
+             371                     !SK201904!
+             372                     !SK201904!! do k=0,M-1
+             373                     !SK201904!!    do n=0,L-1
+             374                     !SK201904!!      u=sqrt((fx*n)**2+(fy*k)**2)
+             375                     !SK201904!!      !weight(n+1,k+1)=real(L,r_size)*real(M,r_size)*fx*fy*SINC(PI*real(k)/real(M))*SINC(PI*REAL(n)/REAL(L))*BESSEL_JN(1,2*PI*u)/u
+             376                     !SK201904!!      weights(n+1,k+1)=4*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/M)*sinc(pi*n/L)
+             377                     !SK201904!!    end do
+             378                     !SK201904!! end do
+             379                     !SK201904!  !weight(1,1)=fx*fy*PI
+             380                     !SK201904!
+             381                     !SK201904!  do k=0,M-1
+             382                     !SK201904!    do n=0,L-1
+             383                     !SK201904!      weight(n+1,k+1)=4*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/M)*sinc(pi*n/L)
+             384                     !SK201904!    end do
+             385                     !SK201904!  end do
+             386                     !SK201904!  fourier_weight(:,:)=cmplx(weight(:,:))
+             387                     !SK201904!  CALL CFFT2F (LDIM, L, M,fourier_weight, WSAVE, LENSAV, WORK, LENWRK, IER)
+             388                     !SK201904!
+             389                     !SK201904!  do i=1,nbv
+             390                     !SK201904!    do j=1,nbv
+             391                     !SK201904!      fourier_filt(:,:,i,j)=fourier_trans(:,:,i,j)*fourier_weight(:,:)
+             392                     !SK201904!      CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+             393                     !SK201904!      trans_filt(:,:,i,j)=REAL(fourier_filt(:,:,i,j),r_size)
+             394                     !SK201904!    end do
+             395                     !SK201904!  end do
+             396                     !SK201904!
+             397                     !SK201904!!  do i=1,L
+             398                     !SK201904!!    do j=1,M
+             399                     !SK201904!!      do k=-a,a
+             400                     !SK201904!!        do n=-a,-1
+             401                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             402                     !SK201904!!          fourier_filt(i,j,:,:)=fourier_filt(i,j,:,:)+exp(cmplx(0.,1.)*2*PI*((REAL((i-1)*n)/REAL(nlon-1))+(REAL((j-1)*k)/REAL(nlat-1))))&
+             403                     !SK201904!!                              *fx*fy*SINC(PI*real(k)/real(a))*SINC(PI*REAL(n)/REAL(a))*BESSEL_JN(1,2*PI*u)/u
+             404                     !SK201904!!        end do
+             405                     !SK201904!!        do n=1,a
+             406                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             407                     !SK201904!!          fourier_filt(i,j,:,:)=fourier_filt(i,j,:,:)+exp(cmplx(0.,1.)*2*PI*((REAL((i-1)*n)/REAL(nlon-1))+(REAL((j-1)*k)/REAL(nlat-1))))&
+             408                     !SK201904!!                              *fx*fy*SINC(PI*real(k)/real(a))*SINC(PI*REAL(n)/REAL(a))*BESSEL_JN(1,2*PI*u)/u
+             409                     !SK201904!!        end do
+             410                     !SK201904!!        n=0
+             411                     !SK201904!!        if(k==0) then
+             412                     !SK201904!!          u=PI
+             413                     !SK201904!!          fourier_filt(i,j,:,:)=fourier_filt(i,j,:,:)+fx*fy*PI
+             414                     !SK201904!!        else
+             415                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             416                     !SK201904!!          u= BESSEL_JN(1,2*PI*u)/u
+             417                     !SK201904!!          fourier_filt(i,j,:,:)=fourier_filt(i,j,:,:)+exp(cmplx(0.,1.)*2*PI*(REAL((j-1)*k)/REAL(nlat-1)))*fx*fy*SINC(PI*real(k)/real(a))*u
+             418                     !SK201904!!        end if
+             419                     !SK201904!!      end do
+             420                     !SK201904!!      fourier_filt(i,j,:,:)=fourier_filt(i,j,:,:)*fourier_trans(i,j,:,:)
+             421                     !SK201904!!    end do
+             422                     !SK201904!!  end do
+             423                     !SK201904!!  do i=1,nbv
+             424                     !SK201904!!    do j=1,nbv
+             425                     !SK201904!!      CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i,j), WSAVE, LENSAV, WORK, LENWRK, IER)
+             426                     !SK201904!!      trans_filt(:,:,i,j)=REAL(fourier_filt(:,:,i,j),r_size)
+             427                     !SK201904!!    end do
+             428                     !SK201904!!  end do
+             429                     !SK201904!  deallocate (WORK)
+             430                     !SK201904!  deallocate (WSAVE)
+             431                     !SK201904!  RETURN
+             432                     !SK201904!  END SUBROUTINE LANCZOS_FILTER_mat_naive
+             433                     !SK201904!
+             434                     !SK201904!
+             435                     !SK201904!  SUBROUTINE LANCZOS_FILTER_vec_naive(vec,vec_filt)
+             436                     !SK201904!  IMPLICIT NONE
+             437                     !SK201904!  REAL(r_size), INTENT(IN) :: vec(nlon,nlat,nbv)
+             438                     !SK201904!  REAL(r_size), INTENT(OUT) :: vec_filt(nlon,nlat,nbv)
+             439                     !SK201904!  COMPLEX(r_size) :: fourier_vec(nlon,nlat,nbv)
+             440                     !SK201904!  COMPLEX(r_size) :: fourier_filt(nlon,nlat,nbv)
+             441                     !SK201904!  REAL(r_size) :: u
+             442                     !SK201904!  INTEGER :: i,j,k,n,o
+             443                     !SK201904!  INTEGER :: IER,LENSAV,LENWRK
+             444                     !SK201904!  real(r_size), allocatable, dimension ( : ) :: WORK
+             445                     !SK201904!  real(r_size), allocatable, dimension ( : ) :: WSAVE
+             446                     !SK201904!  real(r_size) :: weight(nlon,nlat)
+             447                     !SK201904!  COMPLEX(r_size) :: fourier_weight(nlon,nlat)
+             448                     !SK201904!  LENSAV=max(2*(L+M) + INT(LOG(REAL(L))/LOG(2.)) + INT(LOG(REAL(M))/LOG(2.)) + 8,L+int(log(real(L,kind = 8 ))/log(2.0D+00))+4+2*M&
+             449                     !SK201904!             +int(log(real(M,kind=8))/log(2.0D+00))+4+M+int(log(real(M,kind=8))/log(2.0D+00))+4)
+             450                     !SK201904!  LENWRK=max(LDIM*M,M*(L+1),2*L*M)
+             451                     !SK201904!  ALLOCATE(WSAVE(1:LENSAV),WORK(1:LENWRK))
+             452                     !SK201904!  CALL cfft2i (L,M,WSAVE,LENSAV,IER)
+             453                     !SK201904!  vec_filt=0.0d0
+             454                     !SK201904!  fourier_vec=cmplx(0.0d0)
+             455                     !SK201904!  fourier_filt=cmplx(0.0d0)
+             456                     !SK201904!
+             457                     !SK201904!  do i=1,nbv
+             458                     !SK201904!    fourier_vec(:,:,i)=cmplx(vec(:,:,i))
+             459                     !SK201904!    CALL CFFT2F (LDIM, L, M,fourier_vec(:,:,i) , WSAVE, LENSAV, WORK, LENWRK, IER)
+             460                     !SK201904!  end do
+             461                     !SK201904!
+             462                     !SK201904!  do k=0,M-1
+             463                     !SK201904!    do n=0,L-1
+             464                     !SK201904!      weight(n+1,k+1)=4*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M))*sinc(pi*n/(L))
+             465                     !SK201904!    end do
+             466                     !SK201904!  end do
+             467                     !SK201904!
+             468                     !SK201904!
+             469                     !SK201904!
+             470                     !SK201904!
+             471                     !SK201904!! do k=1,M/2
+             472                     !SK201904!!   do n=1,L/2
+             473                     !SK201904!!    ! if(k<M/2) then
+             474                     !SK201904!!    !   if (n<L/2) then
+             475                     !SK201904!!    !     weight(n+1,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             476                     !SK201904!!    !   end if
+             477                     !SK201904!!    !   weight(L-n,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             478                     !SK201904!!    ! end if
+             479                     !SK201904!!    ! if (n<L/2) then
+             480                     !SK201904!!    !   weight(L-n,k+1)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             481                     !SK201904!!    ! end if
+             482                     !SK201904!!    ! weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M/2))*sinc(pi*n/(L/2))
+             483                     !SK201904!!    !weight(n,k)=4*M*L*fy*fx*sinc(2*PI*fx*(k-1))*sinc(2*PI*fy*(n-1))*sinc(pi*(k-1)/(M/2))*sinc(pi*(n-1)/(L/2))
+             484                     !SK201904!!    !weight(L-n,k)=4*M*L*fy*fx*sinc(2*PI*fx*(k-1))*sinc(2*PI*fy*(-n))*sinc(pi*(k-1)/(M/2))*sinc(pi*(-n)/(L/2))
+             485                     !SK201904!!    !weight(n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*(-k))*sinc(2*PI*fy*(n-1))*sinc(pi*(-k)/(M/2))*sinc(pi*(n-1)/(L/2))
+             486                     !SK201904!!    !weight(L-n,M-k)=4*M*L*fy*fx*sinc(2*PI*fx*(-k))*sinc(2*PI*fy*(-n))*sinc(pi*(-k)/(M/2))*sinc(pi*(-n)/(L/2))
+             487                     !SK201904!!    !weight(n+1,k+1)=4*fy*fx*sinc(2*PI*fx*k)*sinc(2*PI*fy*n)*sinc(pi*k/(M))*sinc(pi*n/(L))
+             488                     !SK201904!!   end do
+             489                     !SK201904!! end do
+             490                     !SK201904!  !weight(1,1)=fx*fy*PI
+             491                     !SK201904!  fourier_weight(:,:)=cmplx(weight(:,:))
+             492                     !SK201904!
+             493                     !SK201904!  CALL CFFT2F (LDIM, L, M,fourier_weight, WSAVE, LENSAV, WORK, LENWRK, IER)
+             494                     !SK201904!  do i=1,nbv
+             495                     !SK201904!    fourier_filt(:,:,i)=fourier_vec(:,:,i)*fourier_weight(:,:)
+             496                     !SK201904!    CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i), WSAVE, LENSAV, WORK, LENWRK, IER)
+             497                     !SK201904!    vec_filt(:,:,i)=REAL(fourier_filt(:,:,i),r_size)
+             498                     !SK201904!  end do
+             499                     !SK201904!
+             500                     !SK201904!!  PRINT *, 'UNFILTERED+++++++++++++++++++++++++++++++++++++++++++++++'
+             501                     !SK201904!!  PRINT *, vec(:,:,1)-vec_filt(:,:,1)
+             502                     !SK201904!!  PRINT *, 'FILTERED*************************************************'
+             503                     !SK201904!!  PRINT *, 'UNFILTERED+++++++++++++++++++++++++++++++++++++++++++++++'
+             504                     !SK201904!!  PRINT *, vec(:,:,1)
+             505                     !SK201904!!  PRINT *, 'FILTERED*************************************************'
+             506                     !SK201904!!  PRINT *, fourier_filt(:,:,1)
+             507                     !SK201904!!  PRINT *, '_________________________________________________________'
+             508                     !SK201904!!  do i=1,L
+             509                     !SK201904!!    do j=1,M
+             510                     !SK201904!!      do k=-a,a
+             511                     !SK201904!!        do n=-a,-1
+             512                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             513                     !SK201904!!          fourier_filt(i,j,:)=fourier_filt(i,j,:)+exp(cmplx(0.,1.)*2*PI*((REAL((i-1)*n)/REAL(nlon-1))+(REAL((j-1)*k)/REAL(nlat-1))))&
+             514                     !SK201904!!                              *fx*fy*SINC(PI*real(k)/real(a))*SINC(PI*REAL(n)/REAL(a))*BESSEL_JN(1,2*PI*u)/u
+             515                     !SK201904!!        end do
+             516                     !SK201904!!        do n=1,a
+             517                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             518                     !SK201904!!          fourier_filt(i,j,:)=fourier_filt(i,j,:)+exp(cmplx(0.,1.)*2*PI*((REAL((i-1)*n)/REAL(nlon-1))+(REAL((j-1)*k)/REAL(nlat-1))))&
+             519                     !SK201904!!                              *fx*fy*SINC(PI*real(k)/real(a))*SINC(PI*REAL(n)/REAL(a))*BESSEL_JN(1,2*PI*u)/u
+             520                     !SK201904!!        end do
+             521                     !SK201904!!        n=0
+             522                     !SK201904!!        if(k==0) then
+             523                     !SK201904!!          u=PI
+             524                     !SK201904!!          fourier_filt(i,j,:)=fourier_filt(i,j,:)+fx*fy*PI
+             525                     !SK201904!!        else
+             526                     !SK201904!!          u=sqrt((fx*n)**2+(fy*k)**2)
+             527                     !SK201904!!          u= BESSEL_JN(1,2*PI*u)/u
+             528                     !SK201904!!          fourier_filt(i,j,:)=fourier_filt(i,j,:)+exp(cmplx(0.,1.)*2*PI*(REAL((j-1)*k)/REAL(nlat-1)))*fx*fy*SINC(PI*real(k)/real(a))*u
+             529                     !SK201904!!        end if
+             530                     !SK201904!!      end do
+             531                     !SK201904!!      fourier_filt(i,j,:)=fourier_filt(i,j,:)*fourier_vec(i,j,:)
+             532                     !SK201904!!    end do
+             533                     !SK201904!!  end do
+             534                     !SK201904!!  do i=1,nbv
+             535                     !SK201904!!    CALL CFFT2B (LDIM, L, M, fourier_filt(:,:,i), WSAVE, LENSAV, WORK, LENWRK, IER)
+             536                     !SK201904!!    vec_filt(:,:,i)=REAL(fourier_filt(:,:,i),r_size)
+             537                     !SK201904!!  end do
+             538                     !SK201904!  deallocate (WORK)
+             539                     !SK201904!  deallocate (WSAVE)
+             540                     !SK201904!  RETURN
+             541                     !SK201904!  END SUBROUTINE LANCZOS_FILTER_vec_naive
+             542                     END MODULE filter
+
+ Diagnostic messages: program name(filter)
+  Module subprogram name(BESINC)
+   jwd2018i-s  "filter.f90", line 66: When IMPLICIT NONE is specified, 'BESSEL_JN' must be declared in a type declaration statement.
+  Module subprogram name(LANCZOS_FILTER_mat)
+   jwd2006i-i  "filter.f90", line 134: 'upm' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 134: 'umm' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 134: 'ump' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 134: 'u' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 135: 'o' is declared but never referenced.
+  Module subprogram name(LANCZOS_FILTER_vec)
+   jwd2006i-i  "filter.f90", line 224: 'upm' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 224: 'umm' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 224: 'ump' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 224: 'u' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 225: 'o' is declared but never referenced.
+   jwd2006i-i  "filter.f90", line 225: 'j' is declared but never referenced.
+
+ Procedure information
+   Lines      : 542
+   Statements : 190
+   Stack(byte): 0
+   Prefetch num: 0
+
+ Total information
+   Procedures       : 1
+   Total lines      : 542
+   Total statements : 190
+   Total stack(byte): 0
+   Total prefetch num: 0
+

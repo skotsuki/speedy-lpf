@@ -1,0 +1,919 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:55:00 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_lpf.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_lpf"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_lpf
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Local Particle Filter (LPF)
+               5                     !            Model Independent Core Module
+               6                     !
+               7                     ! [REFERENCES:]
+               8                     !  [1] Ott et al., 2004: A local ensemble Kalman filter for atmospheric
+               9                     !    data assimilation. Tellus, 56A, 415-428.
+              10                     !  [2] Hunt et al., 2007: Efficient Data Assimilation for Spatiotemporal
+              11                     !    Chaos: A Local Ensemble Transform Kalman Filter. Physica D, 230,
+              12                     !    112-126.
+              13                     !
+              14                     ! [HISTORY:]
+              15                     !  04/20/209 Shunji Kotsuki  Created at RIKEN, Kobe
+              16                     !
+              17                     !=======================================================================
+              18                     !$USE OMP_LIB
+              19                       USE common
+              20                       USE common_mtx
+              21                     
+              22                       IMPLICIT NONE
+              23                     
+              24                       PUBLIC
+              25                     !=======================================================================
+              26                     !  LEKF Model Independent Parameters
+              27                     !=======================================================================
+              28                     !  INTEGER,PARAMETER :: nbv=16    ! ensemble size
+              29                       !INTEGER,SAVE :: nbv=02
+              30                       INTEGER,SAVE :: option_aloc = 0 ! SK 20180821 ; 0:normal 1:adaptive localization
+              31                     
+              32                     CONTAINS
+              33                     !=======================================================================
+              34                     !  Main Subroutine of LETKF Core
+              35                     !   INPUT
+              36                     !     nobs             : array size, but only first nobsl elements are used
+              37                     !     nobsl            : total number of observation assimilated at the point
+              38                     !     hdxb(nobs,nbv)   : obs operator times fcst ens perturbations
+              39                     !     rdiag(nobs)      : observation error variance
+              40                     !     rloc(nobs)       : localization weighting function
+              41                     !     dep(nobs)        : observation departure (yo-Hxb)
+              42                     !   OUTPUT
+              43                     !     trans(nbv,nbv) : transformation matrix
+              44                     !=======================================================================
+              45                     SUBROUTINE lpf_core(nobs,nobsl,hdxb,rdiag,rloc,dep,parm_infl,gr_common,type_pfmtx,asis,peff,pvec,pmat)
+              46                       IMPLICIT NONE
+              47                       INTEGER,INTENT(IN) :: nobs
+              48                       INTEGER,INTENT(IN) :: nobsl
+              49                       INTEGER,INTENT(IN) :: type_pfmtx ! 0: Roland et al. (2019;MWR), 1: KK's Monte-Carlo Resampling
+              50                       REAL(r_size),INTENT(IN)    :: hdxb(1:nobs,1:nbv)
+              51                       REAL(r_size),INTENT(IN)    :: rdiag(1:nobs)
+              52                       REAL(r_size),INTENT(IN)    :: rloc(1:nobs)
+              53                       REAL(r_size),INTENT(IN)    :: dep(1:nobs)
+              54                       REAL(r_size),INTENT(IN)    :: gr_common(1:nbv,1:nbv)
+              55                       REAL(r_size),INTENT(INOUT) :: parm_infl
+              56                       REAL(r_size) :: hdxb_rinv(nobsl,nbv)
+              57                       REAL(r_size) :: eivec(nbv,nbv)
+              58                       REAL(r_size) :: eival(nbv)
+              59                       REAL(r_size) :: pa(nbv,nbv)
+              60                       REAL(r_size) :: work1(nbv,nbv)
+              61                       REAL(r_size) :: work2(nbv,nobsl)
+              62                       REAL(r_size) :: rho
+              63                       REAL(r_size) :: parm(4),sigma_o,gain
+              64                       REAL(r_size),PARAMETER :: sigma_b = 0.04d0 !error stdev of parm_infl
+              65                     
+              66                       REAL(r_size),INTENT(INOUT) :: asis(1:nbv)
+              67                       REAL(r_size),INTENT(OUT)   :: peff
+              68                       REAL(r_size),INTENT(OUT)   :: pvec(nbv)      ! LPF when updating only ensemble mean
+              69                       REAL(r_size),INTENT(OUT)   :: pmat(nbv,nbv)  ! LPF when resampling (mean and ptb)
+              70                       REAL(r_size) :: sqpf, qtmp, swgh
+              71                       REAL(r_size) :: qpf(1:nbv), acc(1:nbv), pfwgh(1:nbv), rand(1:nbv), grnd(1:nbv), dep2_Ri(1:nbv), pmat_one(nbv,nbv), pmat_suu(nbv,nbv)
+              72                     
+              73                       !==> Penny & Miyoshi 2016 (NPG)
+              74                       REAL(r_size),PARAMETER :: epsison_lpf  = 1.0d-10
+              75                     
+              76                       !==> KK's Monte-Carlo Resampling
+              77                       INTEGER                :: nmonte
+              78                     
+              79                       !==> Marginal Particle Filter ; parameters based on personal communication by KK ; M=040
+              80                       INTEGER,PARAMETER :: nsu          = 100
+              81                       INTEGER,PARAMETER :: a_sample     = 100
+              82                       INTEGER,PARAMETER :: b_sample     =  98
+              83                       !REAL(8),PARAMETER :: a_factor     =  0.088d0
+              84                       !REAL(8),PARAMETER :: b_factor     = -0.088d0
+              85                       REAL(8),PARAMETER :: a_factor     =  0.040d0
+              86                       REAL(8),PARAMETER :: b_factor     = -0.040d0
+              87                       REAL(8)           :: c_factor, d_factor, sss1, sss2, ppp, qqq
+              88                     
+              89                     
+              90                       !==> adaptive resampling amplitudes ;;  Potthast et al. (2019; MWR)
+              91                       REAL(r_size) :: resample_factor
+              92                       REAL(r_size),PARAMETER :: alpha_smooth = 0.05d0
+              93                       REAL(r_size),PARAMETER :: rho0         = 1.0d0
+              94                       REAL(r_size),PARAMETER :: rho1         = 1.4d0
+              95                       REAL(r_size),PARAMETER :: ccc0         = 0.02d0
+              96                       REAL(r_size),PARAMETER :: ccc1         = 0.20d0
+              97                     
+              98                     
+              99                       INTEGER :: i,j,k
+             100                     ! LOGICAL :: exist
+             101     1                 IF(nobsl == 0) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FUSED(lines: 102,104)
+                                   <<< Loop-information  End >>>
+             102     1   p               pvec(:)   = 1.0d0 / dble( nbv )
+             103     1                   peff      = UNDEF
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FUSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pvec, pmat
+                                   <<< Loop-information  End >>>
+             104     1  pp   8v          pmat(:,:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             105     2  pp   8m          DO j=1,nbv ; pmat(j,j) = 1.0d0 ; END DO ! no resampling
+             106     1                   RETURN
+             107     1                 ELSE
+             108     1               !-----------------------------------------------------------------------
+             109     1               !  hdxb Rinv
+             110     1               !-----------------------------------------------------------------------
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rdiag, rloc, hdxb, hdxb_rinv
+                                   <<< Loop-information  End >>>
+             111     2  pp             DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 381
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rdiag, rloc, hdxb, hdxb_rinv
+                                   <<< Loop-information  End >>>
+             112     3  pp   6v          DO i=1,nobsl
+             113     3   p   6v            hdxb_rinv(i,j) = hdxb(i,j) / rdiag(i) * rloc(i)
+             114     3   p   6v          END DO
+             115     2   p             END DO
+             116     1               !-----------------------------------------------------------------------
+             117     1               ! Likelihood Computation based on Gauss
+             118     1               !-----------------------------------------------------------------------
+             119     1                 ! dep   :: yo     - Hxf(mean)
+             120     1                 ! hdxb  :: Hxf(i) - Hxf(mean)
+             121     1                 ! rdiag :: err*err (i.e., variance)
+             122     1                 ! rloc  :: 0-1
+             123     1               
+             124     1                 !CALL calc_pfwgh_norml(nobs,nobsl,nbv,dep,hdxb,rloc,rdiag,pfwgh)
+             125     1                 CALL calc_pfwgh_kkver(nobs,nobsl,nbv,dep,hdxb,rloc,rdiag,asis,pfwgh)
+             126     1               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh
+                                   <<< Loop-information  End >>>
+             127     1  pp   8v        swgh     = sum( pfwgh(:) )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh, asis
+                                   <<< Loop-information  End >>>
+             128     1  pp   8v        pfwgh(:) = pfwgh(:) / swgh
+             129     1   p   8v        asis(:)  = pfwgh(:)
+             130     1               
+             131     1   p   8v        peff     = 1.0d0  / sum( pfwgh(:)**2.0d0 ) ! effective particle size
+             132     1               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      acc
+                                   <<< Loop-information  End >>>
+             133     1  pp   8v        acc(:)   = 0.0d0
+             134     1                 acc(1)   = pfwgh(1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh, acc
+                                   <<< Loop-information  End >>>
+             135     2   s   8s        DO j=2,nbv
+             136     2   s   8s          acc(j) = acc(j-1) + pfwgh(j)
+             137     2   s   8s        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh, pvec
+                                   <<< Loop-information  End >>>
+             138     1  pp   8v        pvec(:)   = pfwgh(:)
+             139     1               
+             140     1               !-----------------------------------------------------------------------
+             141     1               ! adaptive inflation (Potthast et al. 2018)
+             142     1               !-----------------------------------------------------------------------
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             143     1       f         parm = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 458
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rdiag, rloc, dep
+                                   <<< Loop-information  End >>>
+             144     2  pp   6v        DO i=1,nobsl
+             145     2   p   6v          parm(1) = parm(1) + dep(i)*dep(i)/rdiag(i) * rloc(i)
+             146     2   p   6v        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 4
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      hdxb_rinv, hdxb, (unknown)
+                                   <<< Loop-information  End >>>
+             147     2  pp             DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      hdxb, hdxb_rinv
+                                   <<< Loop-information  End >>>
+             148     3  pp   8v          DO i=1,nobsl
+             149     3   p   8v            parm(2) = parm(2) + hdxb_rinv(i,j) * hdxb(i,j)
+             150     3   p   8v          END DO
+             151     2   p             END DO
+             152     1                 parm(2) = parm(2) / REAL(nbv-1,r_size)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rloc
+                                   <<< Loop-information  End >>>
+             153     1  pp   8v        parm(3) = SUM(rloc(1:nobsl))
+             154     1               !Pottast2018!  parm(4) = (parm(1)-parm(3))/parm(2) ! diagnosed inflation
+             155     1               !Pottast2018!  print '(3f10.4)', parm_infl, parm(4), ( 1.0d0 - alpha_smooth )*parm_infl + alpha_smooth*parm(4)
+             156     1               !Pottast2018!  parm_infl = ( 1.0d0 - alpha_smooth )*parm_infl + alpha_smooth*parm(4)
+             157     1               
+             158     1                 parm(4) = (parm(1)-parm(3))/parm(2) - parm_infl
+             159     1               !  sigma_o = 1.0d0/REAL(nobsl,r_size)/MAXVAL(rloc(1:nobsl))
+             160     1                 sigma_o = 2.0d0/parm(3)*((parm_infl*parm(2)+parm(3))/parm(2))**2
+             161     1                 gain = sigma_b**2 / (sigma_o + sigma_b**2)
+             162     1               !CHECK!  print '(4f10.4)', parm_infl, parm(4), gain, parm_infl + gain * parm(4)
+             163     1                 parm_infl = parm_infl + gain * parm(4)
+             164     1               
+             165     1                 !==> calc resampling factor
+             166     2                 IF( parm_infl < rho0 )THEN
+             167     2                   resample_factor = ccc0
+             168     2                 ELSE IF( parm_infl > rho1 )THEN
+             169     2                   resample_factor = ccc1
+             170     2                 ELSE
+             171     2                   resample_factor = ccc0 + (ccc1-ccc0)*(parm_infl-rho0)/(rho1-rho0)
+             172     2                 END IF
+             173     1               !CHECK!  print '(a, 4f10.4)', "  resample_factor :: ", rho0, parm_infl, rho1, resample_factor
+             174     1               
+             175     1               !-----------------------------------------------------------------------
+             176     1               ! Resampling with random numbers
+             177     1               !-----------------------------------------------------------------------
+             178     2                 IF( type_pfmtx==0 )THEN ! 0: Roland et al. (2019;MWR), adaptive resampling
+             179     2                   CALL get_resampling_mtx('MR','ON',nbv,acc,pmat)
+             180     2                   !==> inflation by adding noise
+             181     3                   DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gr_common, grnd
+                                   <<< Loop-information  End >>>
+             182     3  pp   8v            grnd(1:nbv) = gr_common(1:nbv,j) * resample_factor
+             183     3   p   8v            swgh        = sum( grnd(1:nbv) ) / dble( nbv )
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat, grnd
+                                   <<< Loop-information  End >>>
+             184     3  pp   8v            grnd(1:nbv) = grnd(1:nbv) - swgh                ! so that mean is zero
+             185     3   p   8v            pmat(1:nbv,j) =      pmat(1:nbv,j) + grnd(1:nbv)
+             186     3                   END  DO
+             187     2                 ELSE IF( type_pfmtx==1 )THEN ! 1: KK's Monte-Carlo Resampling
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat
+                                   <<< Loop-information  End >>>
+             188     2  pp   8v          pmat(:,:) = 0.0d0
+             189     2                   !nmonte = nbv    ! 20200528 based on discussion w/ KK
+             190     2                   nmonte = nbv*5 ! SK's basic test (appendix)
+             191     3                   DO j=1,nmonte ! MONTE-Carlo Resampling M times
+             192     3                     CALL get_resampling_mtx('MR','ON',nbv,acc,pmat_one)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_one, pmat
+                                   <<< Loop-information  End >>>
+             193     3  pp   8v            pmat(:,:) = pmat(:,:) + pmat_one(:,:) / dble(nmonte)
+             194     3                   END DO
+             195     2                 ELSE IF( type_pfmtx==2 )THEN ! 2: Marginal Particle Filter
+             196     2                   !==> get coefficients of MPF
+             197     2                   sss1 = 0.0d0  ;  sss2 = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2667
+                                   <<< Loop-information  End >>>
+             198     3   s    s          do i=1,a_sample
+             199     3   p    s            sss1 = sss1 + a_factor
+             200     3   p    s            sss2 = sss2 + a_factor**2.0d0  ;  end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2667
+                                   <<< Loop-information  End >>>
+             201     3   s    s          do i=1,b_sample
+             202     3   p    s            sss1 = sss1 + b_factor
+             203     3   p    s            sss2 = sss2 + b_factor**2.0d0  ;  end do
+             204     2               
+             205     2                   ppp = 1.0d0 - sss1  ;  qqq = 1.0d0 - sss2
+             206     2                   c_factor = 0.5d0 * ( ppp - dsqrt(  ppp**2.0d0 - 2.0d0*(ppp**2.0d0 - qqq) ) )
+             207     2                   d_factor = 0.5d0 * ( ppp + dsqrt(  ppp**2.0d0 - 2.0d0*(ppp**2.0d0 - qqq) ) )
+             208     2               
+             209     2                   !CHECK!sss1 = sss1 + c_factor        + d_factor
+             210     2                   !CHECK!sss2 = sss2 + c_factor**2.0d0 + d_factor**2.0d0
+             211     2                   !CHECK!print *, sss1, sss2, a_factor, b_factor, c_factor, d_factor
+             212     2               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 9
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat
+                                   <<< Loop-information  End >>>
+             213     2  pp   8v          pmat(:,:) = 0.0d0
+             214     3                   DO j=1,a_sample ! MONTE-Carlo Resampling M times
+             215     3                     CALL get_resampling_mtx('MR','OF',nbv,acc,pmat_one)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_one, pmat
+                                   <<< Loop-information  End >>>
+             216     3   m   8m            pmat(:,:) = pmat(:,:) + pmat_one(:,:)*a_factor ; END DO
+             217     3                   DO j=1,b_sample ! MONTE-Carlo Resampling M times
+             218     3                     CALL get_resampling_mtx('MR','OF',nbv,acc,pmat_one)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_one, pmat
+                                   <<< Loop-information  End >>>
+             219     3   m   8m            pmat(:,:) = pmat(:,:) + pmat_one(:,:)*b_factor ; END DO
+             220     2               
+             221     2                     CALL get_resampling_mtx('MR','OF',nbv,acc,pmat_one)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 4
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_one, pmat, pmat_suu
+                                   <<< Loop-information  End >>>
+             222     2  pp   8v            pmat(:,:) = pmat(:,:) + pmat_one(:,:)*c_factor
+             223     2               
+             224     2                     !!!CALL get_resampling_mtx('SU','OF',nbv,acc,pmat_one)
+             225     2                     !!!!CALL get_resampling_mtx('MR','OF',nbv,acc,pmat_one)
+             226     2   p   8v          pmat_suu(:,:) = 0.0d0
+             227     3                   DO j=1,nsu
+             228     3                     CALL get_resampling_mtx('SU','OF',nbv,acc,pmat_one)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_one, pmat_suu
+                                   <<< Loop-information  End >>>
+             229     3   m   8m            pmat_suu(:,:) = pmat_suu(:,:) + pmat_one(:,:) / dble(nsu) ; END DO
+             230     2               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat_suu, pmat
+                                   <<< Loop-information  End >>>
+             231     2  pp   8v            pmat(:,:) = pmat(:,:) + pmat_suu(:,:)*d_factor
+             232     2               
+             233     2                   !!!print '(a)', "========================ave time ============================="
+             234     2                   !!!do i=1,nbv
+             235     2                   !!!  print '(I3,x,40i1,x,40i1,x,40i1,x,5f8.3)', i, int(pmat_one(i,:)+0.00001), int(pmat_suu(i,:)+0.1), int((pmat(i,:)+0.1)), &
+             236     2                   !!!        sum(pmat(:,i)),     sum(pmat(i,:)), sum(pmat_suu(i,:)), pfwgh(i)*dble(nbv), acc(i)
+             237     2                   !!!end do
+             238     2                   !!!print '(7f)', sss1, sss2, a_factor, b_factor, c_factor, d_factor, a_factor*a_sample+b_factor*b_sample+c_factor+d_factor
+             239     2                   !!!stop
+             240     2                 ENDIF
+             241     1               !-----------------------------------------------------------------------
+             242     1                   RETURN
+             243     1                 END IF
+             244                     END SUBROUTINE lpf_core
+             245                     
+             246                     !-----------------------------------------------------------------------
+             247                     SUBROUTINE get_resampling_mtx(CC,DG,nbv,acc,pmat)
+             248                     !-----------------------------------------------------------------------
+             249                     IMPLICIT NONE
+             250                       INTEGER     , INTENT(in)  :: nbv
+             251                       CHARACTER(2), INTENT(in)  :: CC, DG
+             252                       REAL(r_size), INTENT(in)  :: acc(1:nbv)
+             253                       REAL(r_size), INTENT(out) :: pmat(nbv,nbv)
+             254                     
+             255                       INTEGER      :: i, j, k, init(nbv), inum(nbv)
+             256                       REAL(r_size) :: rand(nbv), temp
+             257                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      init
+                                   <<< Loop-information  End >>>
+             258     1  pp   8m        DO j=1,nbv ; init(j) = j  ; END DO
+             259                       !CALL com_rand(nbv,rand) ! [0-1]
+             260                     
+             261     1                 IF( CC == 'SU' )THEN
+             262     1                   CALL com_rand_seed(nbv,0,rand) ! [0-1]
+             263     1                   temp = rand(1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rand
+                                   <<< Loop-information  End >>>
+             264     2  pp   8v          DO i=1,nbv
+             265     2   p   8v            rand(i) = ( dble(i) +  temp - 1.0d0 ) / dble(nbv)
+             266     2   p   8v          END DO
+             267     1                 ELSE IF( CC == 'MR' )THEN
+             268     1                   CALL com_rand_seed(nbv,0,rand) ! [0-1]
+             269     1                   CALL quick_sort_asnd(rand,init,1,nbv)
+             270     1                 ELSE
+             271     1                   PRINT *, "  ERROR&SROP :: NOT SUCH OPTION in get_resampling_mtx for CC ", CC
+             272     1                   STOP
+             273     1                 END IF
+             274                     
+             275                       !==> generate resampling mxm matrix (KK's diagonal-oriented; str)
+             276     1               IF( DG =='ON' )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      inum
+                                   <<< Loop-information  End >>>
+             277     1  pp   8v        inum(:)   = 0
+             278     1                 !(1) :: gen selected particle
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      inum
+                                   <<<    PREFETCH(SOFT) : 2
+                                   <<<     SEQUENTIAL : 2
+                                   <<<      rand: 2
+                                   <<< Loop-information  End >>>
+             279     2  pp             DO j=1,nbv ! jth column
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      acc
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      acc: 14
+                                   <<< Loop-information  End >>>
+             280     3   p   8           DO i=1,nbv-1
+             281     4   p   8             IF( rand(j)<=acc(i) )THEN
+             282     4   p   8               inum(j) = i
+             283     4   p   8               GOTO 10
+             284     4   p   8             ENDIF
+             285     3   p   8           END DO
+             286     2   p               inum(j) = nbv
+             287     2   p           10  CONTINUE
+             288     2   p             END DO
+             289     1                 !!print *, inum(:)
+             290     1               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat
+                                   <<< Loop-information  End >>>
+             291     1  pp   8v        pmat(:,:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      inum
+                                   <<<    PREFETCH(SOFT) : 12
+                                   <<<     SEQUENTIAL : 12
+                                   <<<      inum: 12
+                                   <<< Loop-information  End >>>
+             292     2   s   6s        DO i=1,nbv ! (1) diagonal component
+             293     2   p   6v          k = inum(i)
+             294     3   m   6s          IF( k/=0 .and. pmat(k,k)<0.5d0 )THEN
+             295     3   s   6s            pmat(k,k) = 1.0d0
+             296     3   p   6s            inum(i)   = 0
+             297     3   p   6v          END IF
+             298     2   p   6v        END DO
+             299     1               
+             300     2                 DO i=1,nbv ! (2) off-diagonal component
+             301     2                   k = inum(i)
+             302     3                   IF( k/=0 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat, (unknown)
+                                   <<< Loop-information  End >>>
+             303     4                     DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat
+                                   <<< Loop-information  End >>>
+             304     5  pp   8v              IF( sum(pmat(:,j))<0.5 )THEN
+             305     5                         pmat(k,j) = 1.0d0
+             306     5                         GOTO 20
+             307     5                       END IF
+             308     4                     END DO
+             309     3                   END IF
+             310     2               20  CONTINUE
+             311     2                 END DO
+             312     1               
+             313     1               ELSE IF( DG =='OF' )THEN
+             314     1                 !==> generate resampling mxm matrix (non-diagonal-oriented; str, SK's trial)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pmat
+                                   <<< Loop-information  End >>>
+             315     1  pp   8v        pmat(:,:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 5
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 2
+                                   <<<     SEQUENTIAL : 2
+                                   <<<      rand: 2
+                                   <<< Loop-information  End >>>
+             316     2  pp             DO j=1,nbv ! jth column
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      acc
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      acc: 14
+                                   <<< Loop-information  End >>>
+             317     3   p   8           DO i=1,nbv-1
+             318     4   p   8             IF( rand(j)<=acc(i) )THEN
+             319     4   p   8               pmat(i,j) = 1.0d0
+             320     4   p   8               GOTO 30
+             321     4   p   8             END IF
+             322     3   p   8           END DO
+             323     2   p               pmat(nbv,j) = 1.0d0
+             324     2   p           30  CONTINUE
+             325     2   p             END DO
+             326     1               ENDIF
+             327                     
+             328                     END SUBROUTINE get_resampling_mtx
+             329                     
+             330                     !-----------------------------------------------------------------------
+             331                     SUBROUTINE calc_pfwgh_kkver(nobs,nobsl,nbv,dep,hdxb,rloc,rdiag,asis,pfwgh)
+             332                     !-----------------------------------------------------------------------
+             333                     IMPLICIT NONE
+             334                       INTEGER     , INTENT(IN)    :: nobs,nobsl, nbv
+             335                       REAL(r_size), INTENT(IN)    :: dep(1:nobs),hdxb(1:nobs,1:nbv), rloc(1:nobs), rdiag(1:nobs), asis(1:nbv)
+             336                       REAL(r_size), INTENT(OUT)   :: pfwgh(1:nbv)
+             337                       INTEGER :: i, j, k
+             338                       REAL(r_size) :: sqpf, qtmp, qpf(1:nbv), dep2_Ri(1:nbv)
+             339                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dep2_Ri
+                                   <<< Loop-information  End >>>
+             340        pp   8v        dep2_Ri(:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rdiag, hdxb, dep, rloc
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      dep2_Ri: 8
+                                   <<< Loop-information  End >>>
+             341     1  pp             DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rloc, hdxb, dep, rdiag
+                                   <<< Loop-information  End >>>
+             342     2   p   6v          DO i=1,nobsl
+             343     2   p   6v            dep2_Ri(j) = dep2_Ri(j) - 0.5d0*((hdxb(i,j)-dep(i))**2.0d0) * rloc(i) / rdiag(i)
+             344     2   p   6v          END DO
+             345     1   p             END DO
+             346                     
+             347                       sqpf     = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      qpf
+                                   <<< Loop-information  End >>>
+             348        pp   8v        qpf(:)   = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dep2_Ri, asis, (unknown)
+                                   <<< Loop-information  End >>>
+             349     1                 DO j=1,nbv
+             350     1                   qtmp = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 44
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dep2_Ri, asis
+                                   <<< Loop-information  End >>>
+             351     2  pp   4v          DO k=1,nbv
+             352     2   p   4v            qtmp = qtmp + dexp( dep2_Ri(k) - dep2_Ri(j) ) * asis(k)
+             353     2                     !print '(2i,5f)', j, k, dep2_Ri(j), dep2_Ri(k), dexp( dep2_Ri(j) ), qtmp, dexp( dep2_Ri(k) - dep2_Ri(j) )
+             354     2   p   4v          END DO
+             355     1                   qpf(j) = asis(j) / qtmp
+             356     1                   sqpf   = sqpf + qpf(j)
+             357     1                   !print *, j, qpf(j), dexp( dep2_Ri(j) )
+             358     1                 END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh, qpf
+                                   <<< Loop-information  End >>>
+             359        pp   8v        pfwgh(:) = qpf(:) / sqpf
+             360                       RETURN
+             361                     END SUBROUTINE calc_pfwgh_kkver
+             362                     
+             363                     !-----------------------------------------------------------------------
+             364                     SUBROUTINE calc_pfwgh_norml(nobs,nobsl,nbv,dep,hdxb,rloc,rdiag,pfwgh)
+             365                     !-----------------------------------------------------------------------
+             366                     IMPLICIT NONE
+             367                       INTEGER     , INTENT(IN)  :: nobs,nobsl, nbv
+             368                       REAL(r_size), INTENT(IN)  :: dep(1:nobs),hdxb(1:nobs,1:nbv), rloc(1:nobs), rdiag(1:nobs)
+             369                       REAL(r_size), INTENT(OUT) :: pfwgh(1:nbv)
+             370                       INTEGER :: i, j, k
+             371                       REAL(r_size) :: sqpf, qtmp, qpf(1:nbv), dep2_Ri(1:nbv)
+             372                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dep2_Ri
+                                   <<< Loop-information  End >>>
+             373        pp   8v        dep2_Ri(:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rdiag, hdxb, dep, rloc
+                                   <<<    PREFETCH(SOFT) : 8
+                                   <<<     SEQUENTIAL : 8
+                                   <<<      dep2_Ri: 8
+                                   <<< Loop-information  End >>>
+             374     1  pp             DO j=1,nbv
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rloc, hdxb, dep, rdiag
+                                   <<< Loop-information  End >>>
+             375     2   p   6v          DO i=1,nobsl
+             376     2   p   6v            dep2_Ri(j) = dep2_Ri(j) - 0.5d0*((hdxb(i,j)-dep(i))**2.0d0) * rloc(i) / rdiag(i)
+             377     2   p   6v          END DO
+             378     1   p             END DO
+             379                     
+             380                       sqpf     = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      qpf
+                                   <<< Loop-information  End >>>
+             381        pp   8v        qpf(:)   = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 45
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dep2_Ri, qpf
+                                   <<< Loop-information  End >>>
+             382     1  pp   4v        DO j=1,nbv
+             383     1   p   4v          qpf(j) = dexp( dep2_Ri(j) )
+             384     1   p   4v          sqpf   = sqpf + qpf(j)
+             385     1                   !print *, j, qpf(j), dexp( dep2_Ri(j) )
+             386     1   p   4v        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pfwgh, qpf
+                                   <<< Loop-information  End >>>
+             387        pp   8v        pfwgh(:) = qpf(:) / sqpf
+             388                       RETURN
+             389                     END SUBROUTINE calc_pfwgh_norml
+             390                     END MODULE common_lpf
+
+ Diagnostic messages: program name(common_lpf)
+   jwd8220o-i  "common_lpf.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(lpf_core)
+   jwd2006i-i  "common_lpf.f90", line 57: 'eivec' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 58: 'eival' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 59: 'pa' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 60: 'work1' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 61: 'work2' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 62: 'rho' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 70: 'qtmp' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 70: 'sqpf' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 71: 'dep2_Ri' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 71: 'rand' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 71: 'qpf' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 99: 'k' is declared but never referenced.
+   jwd8209o-i  "common_lpf.f90", line 113: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "common_lpf.f90", line 127: Method of calculating sum or product is changed.
+   jwd8206o-i  "common_lpf.f90", line 128: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "common_lpf.f90", line 131: Method of calculating sum or product is changed.
+   jwd8209o-i  "common_lpf.f90", line 145: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "common_lpf.f90", line 145: Method of calculating sum or product is changed.
+   jwd8208o-i  "common_lpf.f90", line 149: Method of calculating sum or product is changed.
+   jwd8208o-i  "common_lpf.f90", line 153: Method of calculating sum or product is changed.
+   jwd8209o-i  "common_lpf.f90", line 163: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_lpf.f90", line 171: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_lpf.f90", line 171: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "common_lpf.f90", line 182: Method of calculating sum or product is changed.
+   jwd8206o-i  "common_lpf.f90", line 193: Division is changed to multiplication by reciprocal.
+   jwd8201o-i  "common_lpf.f90", line 193: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "common_lpf.f90", line 199: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_lpf.f90", line 200: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_lpf.f90", line 206: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_lpf.f90", line 229: Division is changed to multiplication by reciprocal.
+  Module subprogram name(get_resampling_mtx)
+   jwd8220o-i  "common_lpf.f90", line 264: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "common_lpf.f90", line 265: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_lpf.f90", line 265: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "common_lpf.f90", line 304: Method of calculating sum or product is changed.
+  Module subprogram name(calc_pfwgh_kkver)
+   jwd8209o-i  "common_lpf.f90", line 343: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "common_lpf.f90", line 343: Method of calculating sum or product is changed.
+   jwd8208o-i  "common_lpf.f90", line 352: Method of calculating sum or product is changed.
+   jwd8206o-i  "common_lpf.f90", line 359: Division is changed to multiplication by reciprocal.
+  Module subprogram name(calc_pfwgh_norml)
+   jwd2006i-i  "common_lpf.f90", line 370: 'k' is declared but never referenced.
+   jwd2006i-i  "common_lpf.f90", line 371: 'qtmp' is declared but never referenced.
+   jwd8209o-i  "common_lpf.f90", line 376: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "common_lpf.f90", line 376: Method of calculating sum or product is changed.
+   jwd8208o-i  "common_lpf.f90", line 383: Method of calculating sum or product is changed.
+   jwd8206o-i  "common_lpf.f90", line 387: Division is changed to multiplication by reciprocal.
+
+ Procedure information
+   Lines      : 390
+   Statements : 265
+   Stack(byte): 84688
+   Prefetch num: 60
+
+ Total information
+   Procedures       : 1
+   Total lines      : 390
+   Total statements : 265
+   Total stack(byte): 84688
+   Total prefetch num: 60
+

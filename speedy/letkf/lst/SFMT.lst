@@ -1,0 +1,920 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:54:25 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : SFMT.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "MOD_SFMT"
+  (inc)(line-no.)(nest)(optimize)
+               1                     !===============================================
+               2                     ! SFMT for Fortran 90 (95?)
+               3                     ! file name : SFMT.f90
+               4                     ! auther : Atsushi ITO (Nagoya Univ.)
+               5                     ! version 20070501 (original c source version : 1.2)
+               6                     !
+               7                     !===============================================
+               8                     !/** ORIGINAL_SOURCECODE *************************
+               9                     ! * @file  SFMT.c
+              10                     ! * @brief SIMD oriented Fast Mersenne Twister(SFMT)
+              11                     ! *
+              12                     ! * @author Mutsuo Saito (Hiroshima University)
+              13                     ! * @author Makoto Matsumoto (Hiroshima University)
+              14                     ! *
+              15                     ! * Copyright (C) 2006,2007 Mutsuo Saito, Makoto Matsumoto and Hiroshima
+              16                     ! * University. All rights reserved.
+              17                     ! *
+              18                     ! * The new BSD License is applied to this software, see LICENSE.txt
+              19                     ! */
+              20                     
+              21                     
+              22                     
+              23                     module MOD_SFMT
+              24                         implicit none
+              25                     !/*-----------------
+              26                     !  BASIC DEFINITIONS
+              27                     !  -----------------*/
+              28                     !/** Mersenne Exponent. The period of the sequence
+              29                     ! *  is a multiple of 2^MEXP-1.
+              30                     ! * #define MEXP 19937 */
+              31                     !/** SFMT generator has an internal state array of 128-bit integers,
+              32                     ! * and N is its size. */
+              33                         integer,parameter:: MEXP = 19937
+              34                         integer,parameter:: N = (MEXP / 128 + 1)
+              35                     !/** N32 is the size of internal state array when regarded as an array
+              36                     ! * of 32-bit integers.*/
+              37                         integer,parameter:: N32 = (N * 4)
+              38                     !/** N64 is the size of internal state array when regarded as an array
+              39                     ! * of 64-bit integers.*/
+              40                         integer,parameter:: N64 = (N * 2)
+              41                     
+              42                     
+              43                     
+              44                     
+              45                         integer*4:: psfmt32(0:N32-1)
+              46                         integer*8:: psfmt64(0:N64-1)
+              47                         integer:: idx
+              48                         integer:: initialized = 0
+              49                     
+              50                     
+              51                     !====for MEXP == 19937
+              52                         integer,parameter:: POS1 = 122
+              53                         integer,parameter:: SL1 = 18
+              54                         integer,parameter:: SL2 = 1
+              55                         integer,parameter:: SR1 = 11
+              56                         integer,parameter:: SR2 = 1
+              57                     !   integer,parameter:: MSK1 =      ! = 0x001fffefU = 0xdfffffefU
+              58                     !   integer,parameter:: MSK2 =      ! = 0x001ecb7fU = 0xddfecb7fU
+              59                     !   integer,parameter:: MSK3 =      ! = 0x001affffU = 0xbffaffffU
+              60                     !   integer,parameter:: MSK4 =      ! = 0x001ffff6U = 0xbffffff6U
+              61                         integer*8,parameter:: MSK12 = 8667995624701935_8    ! = 0x001ecb7f001fffefU
+              62                         integer*8,parameter:: MSK34 = 9007156306837503_8    ! = 0x001ffff6001affffU
+              63                         integer*8,parameter:: MSK_L = 70364449226751_8  ! = 0x00003fff00003fffU
+              64                         integer*4,parameter:: PARITY1 = 1
+              65                         integer*4,parameter:: PARITY2 = 0
+              66                         integer*4,parameter:: PARITY3 = 0
+              67                         integer*4,parameter:: PARITY4 = 331998852
+              68                     !#define ALTI_SL2_PERM \
+              69                     !(vector unsigned char)(1,2,3,23,5,6,7,0,9,10,11,4,13,14,15,8)
+              70                     !#define ALTI_SL2_PERM64 \
+              71                     !(vector unsigned char)(1,2,3,4,5,6,7,31,9,10,11,12,13,14,15,0)
+              72                     !#define ALTI_SR2_PERM \
+              73                     !(vector unsigned char)(7,0,1,2,11,4,5,6,15,8,9,10,17,12,13,14)
+              74                     !#define ALTI_SR2_PERM64 \
+              75                     !(vector unsigned char)(15,0,1,2,3,4,5,6,17,8,9,10,11,12,13,14)
+              76                     !#define IDSTR  "SFMT-19937:122-18-1-11-1:dfffffef-ddfecb7f-bffaffff-bffffff6"
+              77                     
+              78                         integer*4:: parity(0:3)= (/PARITY1, PARITY2, PARITY3, PARITY4/)
+              79                     
+              80                     end module
+
+ Procedure information
+   Lines      : 80
+   Statements : 24
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "rshift128"
+  (inc)(line-no.)(nest)(optimize)
+              81                     
+              82                     !#include <string.h>
+              83                     !#include <assert.h>
+              84                     !#include "SFMT.h"
+              85                     !#include "SFMT-params.h"
+              86                     !
+              87                     !#if defined(ALTIVEC)
+              88                     !  #include "SFMT-alti.h"
+              89                     !#elif defined(SSE2)
+              90                     !  #include "SFMT-sse2.h"
+              91                     !#else
+              92                     !/*------------------------------------------
+              93                     !  128-bit SIMD like data type for standard C
+              94                     !  ------------------------------------------*/
+              95                     !/** 128-bit data structure */
+              96                     !struct W128_T {
+              97                     !    uint32_t u[4];
+              98                     !};
+              99                     !
+             100                     !/** 128-bit data type */
+             101                     !typedef struct W128_T w128_t;
+             102                     !
+             103                     !#endif
+             104                     !
+             105                     !/*--------------------------------------
+             106                     !  FILE GLOBAL VARIABLES
+             107                     !  internal state, index counter and flag
+             108                     !  --------------------------------------*/
+             109                     !/** the 128-bit internal state array */
+             110                     !static w128_t sfmt[N];
+             111                     !/** the 32bit integer pointer to the 128-bit internal state array */
+             112                     !static uint32_t *psfmt32 = &sfmt[0].u[0];
+             113                     !#if !defined(BIG_ENDIAN64) || defined(ONLY64)
+             114                     !/** the 64bit integer pointer to the 128-bit internal state array */
+             115                     !static uint64_t *psfmt64 = (uint64_t *)&sfmt[0].u[0];
+             116                     !#endif
+             117                     !/** index counter to the 32-bit internal state array */
+             118                     !static int idx;
+             119                     !/** a flag: it is 0 if and only if the internal state is not yet
+             120                     ! * initialized. */
+             121                     !static int initialized = 0;
+             122                     !/** a parity check vector which certificate the period of 2^{MEXP} */
+             123                     !static uint32_t parity[4] = {PARITY1, PARITY2, PARITY3, PARITY4};
+             124                     !
+             125                     !/*----------------
+             126                     !  STATIC FUNCTIONS
+             127                     !  ----------------*/
+             128                     !inline static int idxof(int i);
+             129                     !inline static void rshift128(w128_t *out,  w128_t const *in, int shift);
+             130                     !inline static void lshift128(w128_t *out,  w128_t const *in, int shift);
+             131                     !inline static void gen_rand_all(void);
+             132                     !inline static void gen_rand_array(w128_t array[], int size);
+             133                     !inline static uint32_t func1(uint32_t x);
+             134                     !inline static uint32_t func2(uint32_t x);
+             135                     !static void period_certification(void);
+             136                     !#if defined(BIG_ENDIAN64) && !defined(ONLY64)
+             137                     !inline static void swap(w128_t array[], int size);
+             138                     !#endif
+             139                     !
+             140                     !#if defined(ALTIVEC)
+             141                     !  #include "SFMT-alti.c"
+             142                     !#elif defined(SSE2)
+             143                     !  #include "SFMT-sse2.c"
+             144                     !#endif
+             145                     !
+             146                     !/**
+             147                     ! * This function simulate a 64-bit index of LITTLE ENDIAN
+             148                     ! * in BIG ENDIAN machine.
+             149                     ! */
+             150                     !#ifdef ONLY64
+             151                     !inline static int idxof(int i) {
+             152                     !    return i ^ 1;
+             153                     !}
+             154                     !#else
+             155                     !inline static int idxof(int i) {
+             156                     !integer function idxof(i)
+             157                     !   integer,intent(in):: i
+             158                     !   idxof = i
+             159                     !end function
+             160                     !    return i;
+             161                     !}
+             162                     !#endif
+             163                     !/**
+             164                     ! * This function simulates SIMD 128-bit right shift by the standard C.
+             165                     ! * The 128-bit integer given in in is shifted by (shift * 8) bits.
+             166                     ! * This function simulates the LITTLE ENDIAN SIMD.
+             167                     ! * @param out the output of this function
+             168                     ! * @param in the 128-bit data to be shifted
+             169                     ! * @param shift the shift value
+             170                     ! */
+             171                     !#ifdef ONLY64
+             172                     !inline static void rshift128(w128_t *out, w128_t const *in, int shift) {
+             173                     !    uint64_t th, tl, oh, ol;
+             174                     !
+             175                     !    th = ((uint64_t)in->u[2] << 32) | ((uint64_t)in->u[3]);
+             176                     !    tl = ((uint64_t)in->u[0] << 32) | ((uint64_t)in->u[1]);
+             177                     !
+             178                     !    oh = th >> (shift * 8);
+             179                     !    ol = tl >> (shift * 8);
+             180                     !    ol |= th << (64 - shift * 8);
+             181                     !    out->u[0] = (uint32_t)(ol >> 32);
+             182                     !    out->u[1] = (uint32_t)ol;
+             183                     !    out->u[2] = (uint32_t)(oh >> 32);
+             184                     !    out->u[3] = (uint32_t)oh;
+             185                     !}
+             186                     !#else
+             187                     !inline static void rshift128(w128_t *out, w128_t const *in, int shift) {
+             188                     subroutine rshift128(outTop, outBtm, inTop, inBtm, shift)
+             189                         implicit none
+             190                         integer*8,intent(out):: outTop, outBtm
+             191                         integer*8,intent(in):: inTop, inBtm
+             192                         integer:: shift
+             193                     !   integer*8:: th, tl, oh, ol;
+             194                     
+             195                         outTop = ishft(inTop, -shift * 8)
+             196                         outBtm = ior(ishft(inTop, 64-shift * 8), ishft(inBtm, -shift * 8))
+             197                     !   th = ((uint64_t)in->u[3] << 32) | ((uint64_t)in->u[2]);
+             198                     !   tl = ((uint64_t)in->u[1] << 32) | ((uint64_t)in->u[0]);
+             199                     !
+             200                     !   oh = th >> (shift * 8);
+             201                     !   ol = tl >> (shift * 8);
+             202                     !   ol |= th << (64 - shift * 8);
+             203                     !   out->u[1] = (uint32_t)(ol >> 32);
+             204                     !   out->u[0] = (uint32_t)ol;
+             205                     !   out->u[3] = (uint32_t)(oh >> 32);
+             206                     !   out->u[2] = (uint32_t)oh;
+             207                     end subroutine
+
+ Procedure information
+   Lines      : 127
+   Statements : 8
+   Stack(byte): 16
+   Prefetch num: 0
+
+ External subroutine subprogram "lshift128"
+  (inc)(line-no.)(nest)(optimize)
+             208                     !#endif
+             209                     !/**
+             210                     ! * This function simulates SIMD 128-bit left shift by the standard C.
+             211                     ! * The 128-bit integer given in in is shifted by (shift * 8) bits.
+             212                     ! * This function simulates the LITTLE ENDIAN SIMD.
+             213                     ! * @param out the output of this function
+             214                     ! * @param in the 128-bit data to be shifted
+             215                     ! * @param shift the shift value
+             216                     ! */
+             217                     !#ifdef ONLY64
+             218                     !inline static void lshift128(w128_t *out, w128_t const *in, int shift) {
+             219                     !    uint64_t th, tl, oh, ol;
+             220                     !
+             221                     !    th = ((uint64_t)in->u[2] << 32) | ((uint64_t)in->u[3]);
+             222                     !    tl = ((uint64_t)in->u[0] << 32) | ((uint64_t)in->u[1]);
+             223                     !
+             224                     !    oh = th << (shift * 8);
+             225                     !    ol = tl << (shift * 8);
+             226                     !    oh |= tl >> (64 - shift * 8);
+             227                     !    out->u[0] = (uint32_t)(ol >> 32);
+             228                     !    out->u[1] = (uint32_t)ol;
+             229                     !    out->u[2] = (uint32_t)(oh >> 32);
+             230                     !    out->u[3] = (uint32_t)oh;
+             231                     !}
+             232                     !#else
+             233                     !inline static void lshift128(w128_t *out, w128_t const *in, int shift) {
+             234                     subroutine lshift128(outTop, outBtm, inTop, inBtm, shift)
+             235                         implicit none
+             236                         integer*8,intent(out):: outTop, outBtm
+             237                         integer*8,intent(in):: inTop, inBtm
+             238                         integer:: shift
+             239                     
+             240                         outTop = ior(ishft(inTop, shift * 8), ishft(inBtm, shift * 8-64))
+             241                         outBtm = ishft(inBtm, shift * 8)
+             242                     end subroutine
+
+ Procedure information
+   Lines      : 35
+   Statements : 8
+   Stack(byte): 16
+   Prefetch num: 0
+
+ External subroutine subprogram "do_recursion"
+  (inc)(line-no.)(nest)(optimize)
+             243                     !    uint64_t th, tl, oh, ol;
+             244                     !
+             245                     !    th = ((uint64_t)in->u[3] << 32) | ((uint64_t)in->u[2]);
+             246                     !    tl = ((uint64_t)in->u[1] << 32) | ((uint64_t)in->u[0]);
+             247                     !
+             248                     !    oh = th << (shift * 8);
+             249                     !    ol = tl << (shift * 8);
+             250                     !    oh |= tl >> (64 - shift * 8);
+             251                     !    out->u[1] = (uint32_t)(ol >> 32);
+             252                     !    out->u[0] = (uint32_t)ol;
+             253                     !    out->u[3] = (uint32_t)(oh >> 32);
+             254                     !    out->u[2] = (uint32_t)oh;
+             255                     !}
+             256                     !#endif
+             257                     !
+             258                     !/**
+             259                     ! * This function represents the recursion formula.
+             260                     ! * @param r output
+             261                     ! * @param a a 128-bit part of the internal state array
+             262                     ! * @param b a 128-bit part of the internal state array
+             263                     ! * @param c a 128-bit part of the internal state array
+             264                     ! * @param d a 128-bit part of the internal state array
+             265                     ! */
+             266                     !#ifdef ONLY64
+             267                     !inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *c,
+             268                     !               w128_t *d) {
+             269                     !    w128_t x;
+             270                     !    w128_t y;
+             271                     !
+             272                     !    lshift128(&x, a, SL2);
+             273                     !    rshift128(&y, c, SR2);
+             274                     !    r->u[0] = a->u[0] ^ x.u[0] ^ ((b->u[0] >> SR1) & MSK2) ^ y.u[0]
+             275                     !   ^ (d->u[0] << SL1);
+             276                     !    r->u[1] = a->u[1] ^ x.u[1] ^ ((b->u[1] >> SR1) & MSK1) ^ y.u[1]
+             277                     !   ^ (d->u[1] << SL1);
+             278                     !    r->u[2] = a->u[2] ^ x.u[2] ^ ((b->u[2] >> SR1) & MSK4) ^ y.u[2]
+             279                     !   ^ (d->u[2] << SL1);
+             280                     !    r->u[3] = a->u[3] ^ x.u[3] ^ ((b->u[3] >> SR1) & MSK3) ^ y.u[3]
+             281                     !   ^ (d->u[3] << SL1);
+             282                     !}
+             283                     !#else
+             284                     !inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *c,
+             285                     !               w128_t *d) {
+             286                     subroutine do_recursion(rTop, rBtm, aTop, aBtm, bTop, bBtm, cTop, cBtm, dTop, dBtm)
+             287                         use MOD_SFMT
+             288                         implicit none
+             289                     
+             290                         integer*8,intent(out):: rTop, rBtm
+             291                         integer*8,intent(in):: aTop, aBtm, bTop, bBtm, cTop, cBtm, dTop, dBtm
+             292                     !    w128_t x;
+             293                     !    w128_t y;
+             294                         integer*8:: xTop, xBtm, yTop, yBtm
+             295                     
+             296                         call lshift128(xTop,xBtm, aTop,aBtm, SL2)
+             297                         call rshift128(ytop,yBtm, cTop,cBtm, SR2)
+             298                     
+             299                         rBtm = ieor(aBtm, xBtm)
+             300                         rTop = ieor(aTop, xTop)
+             301                         rBtm = ieor(rBtm, iand(ishft(bBtm, -SR1), MSK12))
+             302                         rTop = ieor(rTop, iand(ishft(bTop, -SR1), MSK34))
+             303                         rBtm = ieor(rBtm, yBtm)
+             304                         rTop = ieor(rTop, yTop)
+             305                         rBtm = ieor(rBtm, ishft(iand(dBtm, MSK_L), SL1))
+             306                         rTop = ieor(rTop, ishft(iand(dTop, MSK_L), SL1))
+             307                     
+             308                     
+             309                     end subroutine
+
+ Procedure information
+   Lines      : 67
+   Statements : 17
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "gen_rand_all"
+  (inc)(line-no.)(nest)(optimize)
+             310                     !#endif
+             311                     !
+             312                     !#if (!defined(ALTIVEC)) && (!defined(SSE2))
+             313                     !/**
+             314                     ! * This function fills the internal state array with pseudorandom
+             315                     ! * integers.
+             316                     ! */
+             317                     subroutine gen_rand_all()
+             318                         use MOD_SFMT
+             319                         implicit none
+             320                     
+             321                         integer:: i
+             322                         integer*8:: r1Top, r1Btm, r2Top, r2Btm
+             323                     
+             324                         r1Btm = psfmt64(N64 - 4)
+             325                         r1Top = psfmt64(N64 - 3)
+             326                         r2Btm = psfmt64(N64 - 2)
+             327                         r2Top = psfmt64(N64 - 1)
+             328                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      psfmt64
+                                   <<< Loop-information  End >>>
+             329     1   s   3s          do i=0,N - POS1 - 1
+             330     1               
+             331     1   s   3s              call do_recursion(psfmt64(i*2 + 1),psfmt64(i*2), psfmt64(i*2 + 1),&
+             332     1                         & psfmt64(i*2), psfmt64((i + POS1)*2+1), psfmt64((i + POS1)*2),&
+             333     1                         & r1Top, r1Btm, r2Top, r2Btm)
+             334     1   s   3s              r1Btm = r2Btm
+             335     1   s   3s              r1Top = r2Top
+             336     1   s   3s              r2Btm = psfmt64(i*2)
+             337     1   s   3s              r2Top = psfmt64(i*2 + 1)
+             338     1               
+             339     1   s   3s          end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      psfmt64
+                                   <<< Loop-information  End >>>
+             340     1   s   2s          do i=N - POS1, N-1
+             341     1   s   2s              call do_recursion(psfmt64(i*2 + 1),psfmt64(i*2), psfmt64(i*2 + 1),&
+             342     1                         & psfmt64(i*2), psfmt64((i + POS1 - N)*2+1),&
+             343     1                         & psfmt64((i + POS1 - N)*2), r1Top, r1Btm, r2Top, r2Btm)
+             344     1   s   2s              r1Btm = r2Btm
+             345     1   s   2s              r1Top = r2Top
+             346     1   s   2s              r2Btm = psfmt64(i*2)
+             347     1   s   2s              r2Top = psfmt64(i*2 + 1)
+             348     1   s   2s          end do
+             349                     end subroutine
+
+ Procedure information
+   Lines      : 40
+   Statements : 24
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "period_certification"
+  (inc)(line-no.)(nest)(optimize)
+             350                     
+             351                     !
+             352                     !/**
+             353                     ! * This function fills the user-specified array with pseudorandom
+             354                     ! * integers.
+             355                     ! *
+             356                     ! * @param array an 128-bit array to be filled by pseudorandom numbers.
+             357                     ! * @param size number of 128-bit pseudorandom numbers to be generated.
+             358                     ! */
+             359                     !inline static void gen_rand_array(w128_t array[], int size) {
+             360                     !    int i, j;
+             361                     !    w128_t *r1, *r2;
+             362                     !
+             363                     !    r1 = &sfmt[N - 2];
+             364                     !    r2 = &sfmt[N - 1];
+             365                     !    for (i = 0; i < N - POS1; i++) {
+             366                     !   do_recursion(&array[i], &sfmt[i], &sfmt[i + POS1], r1, r2);
+             367                     !   r1 = r2;
+             368                     !   r2 = &array[i];
+             369                     !    }
+             370                     !    for (; i < N; i++) {
+             371                     !   do_recursion(&array[i], &sfmt[i], &array[i + POS1 - N], r1, r2);
+             372                     !   r1 = r2;
+             373                     !   r2 = &array[i];
+             374                     !    }
+             375                     !    for (; i < size - N; i++) {
+             376                     !   do_recursion(&array[i], &array[i - N], &array[i + POS1 - N], r1, r2);
+             377                     !   r1 = r2;
+             378                     !   r2 = &array[i];
+             379                     !    }
+             380                     !    for (j = 0; j < 2 * N - size; j++) {
+             381                     !   sfmt[j] = array[j + size - N];
+             382                     !    }
+             383                     !    for (; i < size; i++, j++) {
+             384                     !   do_recursion(&array[i], &array[i - N], &array[i + POS1 - N], r1, r2);
+             385                     !   r1 = r2;
+             386                     !   r2 = &array[i];
+             387                     !   sfmt[j] = array[i];
+             388                     !    }
+             389                     !}
+             390                     !#endif
+             391                     !
+             392                     !#if defined(BIG_ENDIAN64) && !defined(ONLY64) && !defined(ALTIVEC)
+             393                     !inline static void swap(w128_t array[], int size) {
+             394                     !    int i;
+             395                     !    uint32_t x, y;
+             396                     !
+             397                     !    for (i = 0; i < size; i++) {
+             398                     !   x = array[i].u[0];
+             399                     !   y = array[i].u[2];
+             400                     !   array[i].u[0] = array[i].u[1];
+             401                     !   array[i].u[2] = array[i].u[3];
+             402                     !   array[i].u[1] = x;
+             403                     !   array[i].u[3] = y;
+             404                     !    }
+             405                     !}
+             406                     !#endif
+             407                     !/**
+             408                     ! * This function represents a function used in the initialization
+             409                     ! * by init_by_array
+             410                     ! * @param x 32-bit integer
+             411                     ! * @return 32-bit integer
+             412                     ! */
+             413                     !static uint32_t func1(uint32_t x) {
+             414                     !    return (x ^ (x >> 27)) * (uint32_t)1664525UL;
+             415                     !}
+             416                     !
+             417                     !/**
+             418                     ! * This function represents a function used in the initialization
+             419                     ! * by init_by_array
+             420                     ! * @param x 32-bit integer
+             421                     ! * @return 32-bit integer
+             422                     ! */
+             423                     !static uint32_t func2(uint32_t x) {
+             424                     !    return (x ^ (x >> 27)) * (uint32_t)1566083941UL;
+             425                     !}
+             426                     !
+             427                     !/**
+             428                     ! * This function certificate the period of 2^{MEXP}
+             429                     ! */
+             430                     !static void period_certification(void) {
+             431                     subroutine period_certification()
+             432                         use MOD_SFMT
+             433                         implicit none
+             434                     
+             435                         integer:: inner = 0
+             436                         integer:: i, j
+             437                         integer*4:: work
+             438                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      psfmt32, parity
+                                   <<< Loop-information  End >>>
+             439     1                   do i = 0, 3
+             440     1                       work = iand(psfmt32(i), parity(i))
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             441     2   s    s              do j = 0, 31
+             442     2   s    s                  inner = ieor(inner, iand(work, 1))
+             443     2   s    s                  work = ishft(work,-1)
+             444     2   s    s              end do
+             445     1                   end do
+             446                     !    /* check OK */
+             447                         if (inner == 1) return
+             448                     
+             449                     
+             450                     !    /* check NG, and modification */
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      parity
+                                   <<< Loop-information  End >>>
+             451     1                   do i = 0, 3
+             452     1                       work = 1;
+             453     2                       do j = 0, 31
+             454     3                           if (iand(work, parity(i)) /= 0) then
+             455     3                               psfmt32(i) = ieor(psfmt32(i), work)
+             456     3                               return
+             457     3                           end if
+             458     2                           work = ishft(work,1)
+             459     2                       end do
+             460     1                   end do
+             461                     end subroutine
+
+ Procedure information
+   Lines      : 112
+   Statements : 25
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External function subprogram "gen_rand32"
+  (inc)(line-no.)(nest)(optimize)
+             462                     
+             463                     !
+             464                     !/*----------------
+             465                     !  PUBLIC FUNCTIONS
+             466                     !  ----------------*/
+             467                     !/**
+             468                     ! * This function returns the identification string.
+             469                     ! * The string shows the word size, the Mersenne exponent,
+             470                     ! * and all parameters of this generator.
+             471                     ! */
+             472                     !char *get_idstring(void) {
+             473                     !    return IDSTR;
+             474                     !}
+             475                     !
+             476                     !/**
+             477                     ! * This function returns the minimum size of array used for \b
+             478                     ! * fill_array32() function.
+             479                     ! * @return minimum size of array used for fill_array32() function.
+             480                     ! */
+             481                     !int get_min_array_size32(void) {
+             482                     !    return N32;
+             483                     !}
+             484                     !
+             485                     !/**
+             486                     ! * This function returns the minimum size of array used for \b
+             487                     ! * fill_array64() function.
+             488                     ! * @return minimum size of array used for fill_array64() function.
+             489                     ! */
+             490                     !int get_min_array_size64(void) {
+             491                     !    return N64;
+             492                     !}
+             493                     !
+             494                     !#ifndef ONLY64
+             495                     !/**
+             496                     ! * This function generates and returns 32-bit pseudorandom number.
+             497                     ! * init_gen_rand or init_by_array must be called before this function.
+             498                     ! * @return 32-bit pseudorandom number
+             499                     ! */
+             500                     integer*4 function gen_rand32()
+             501                         use MOD_SFMT
+             502                         implicit none
+             503                     
+             504                         if(initialized==0)stop
+             505                     
+             506     1                   if (idx >= N32) then
+             507     1                       call gen_rand_all()
+             508     1                       idx = 0
+             509     1                   end if
+             510     1                   if (btest(idx,0))then
+             511     1                       gen_rand32 = ibits(psfmt64(idx/2),32,32)
+             512     1                   else
+             513     1                       gen_rand32 = ibits(psfmt64(idx/2),0,32)
+             514     1                   end if
+             515                         idx = idx + 1
+             516                     end function
+
+ Procedure information
+   Lines      : 55
+   Statements : 15
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External function subprogram "gen_rand64"
+  (inc)(line-no.)(nest)(optimize)
+             517                     !#endif
+             518                     !/**
+             519                     ! * This function generates and returns 64-bit pseudorandom number.
+             520                     ! * init_gen_rand or init_by_array must be called before this function.
+             521                     ! * The function gen_rand64 should not be called after gen_rand32,
+             522                     ! * unless an initialization is again executed.
+             523                     ! * @return 64-bit pseudorandom number
+             524                     ! */
+             525                     integer*8 function gen_rand64()
+             526                         use MOD_SFMT
+             527                         implicit none
+             528                         integer::i
+             529                     
+             530                     !
+             531     1                   if (idx >= N32) then
+             532     1                       call gen_rand_all()
+             533     1                       idx = 0
+             534     1                   end if
+             535                         gen_rand64 = psfmt64(idx/2);
+             536                         idx = idx + 2
+             537                     end function
+
+ Diagnostic messages: program name(gen_rand64)
+   jwd2006i-i  "SFMT.f90", line 528: 'i' is declared but never referenced.
+
+ Procedure information
+   Lines      : 21
+   Statements : 11
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External subroutine subprogram "init_gen_rand"
+  (inc)(line-no.)(nest)(optimize)
+             538                     !    idx += 2;
+             539                     !    return r;
+             540                     !#endif
+             541                     !}
+             542                     !
+             543                     !#ifndef ONLY64
+             544                     !/**
+             545                     ! * This function generates pseudorandom 32-bit integers in the
+             546                     ! * specified array[] by one call. The number of pseudorandom integers
+             547                     ! * is specified by the argument size, which must be at least 624 and a
+             548                     ! * multiple of four.  The generation by this function is much faster
+             549                     ! * than the following gen_rand function.
+             550                     ! *
+             551                     ! * For initialization, init_gen_rand or init_by_array must be called
+             552                     ! * before the first call of this function. This function can not be
+             553                     ! * used after calling gen_rand function, without initialization.
+             554                     ! *
+             555                     ! * @param array an array where pseudorandom 32-bit integers are filled
+             556                     ! * by this function.  The pointer to the array must be \b "aligned"
+             557                     ! * (namely, must be a multiple of 16) in the SIMD version, since it
+             558                     ! * refers to the address of a 128-bit integer.  In the standard C
+             559                     ! * version, the pointer is arbitrary.
+             560                     ! *
+             561                     ! * @param size the number of 32-bit pseudorandom integers to be
+             562                     ! * generated.  size must be a multiple of 4, and greater than or equal
+             563                     ! * to (MEXP / 128 + 1) * 4.
+             564                     ! *
+             565                     ! * @note \b memalign or \b posix_memalign is available to get aligned
+             566                     ! * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
+             567                     ! * returns the pointer to the aligned memory block.
+             568                     ! */
+             569                     !inline void fill_array32(uint32_t array[], int size) {
+             570                     !    assert(initialized);
+             571                     !    assert(idx == N32);
+             572                     !    assert(size % 4 == 0);
+             573                     !    assert(size >= N32);
+             574                     !
+             575                     !    gen_rand_array((w128_t *)array, size / 4);
+             576                     !    idx = N32;
+             577                     !}
+             578                     !#endif
+             579                     !
+             580                     !/**
+             581                     ! * This function generates pseudorandom 64-bit integers in the
+             582                     ! * specified array[] by one call. The number of pseudorandom integers
+             583                     ! * is specified by the argument size, which must be at least 312 and a
+             584                     ! * multiple of two.  The generation by this function is much faster
+             585                     ! * than the following gen_rand function.
+             586                     ! *
+             587                     ! * For initialization, init_gen_rand or init_by_array must be called
+             588                     ! * before the first call of this function. This function can not be
+             589                     ! * used after calling gen_rand function, without initialization.
+             590                     ! *
+             591                     ! * @param array an array where pseudorandom 64-bit integers are filled
+             592                     ! * by this function.  The pointer to the array must be "aligned"
+             593                     ! * (namely, must be a multiple of 16) in the SIMD version, since it
+             594                     ! * refers to the address of a 128-bit integer.  In the standard C
+             595                     ! * version, the pointer is arbitrary.
+             596                     ! *
+             597                     ! * @param size the number of 64-bit pseudorandom integers to be
+             598                     ! * generated.  size must be a multiple of 2, and greater than or equal
+             599                     ! * to (MEXP / 128 + 1) * 2
+             600                     ! *
+             601                     ! * @note \b memalign or \b posix_memalign is available to get aligned
+             602                     ! * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
+             603                     ! * returns the pointer to the aligned memory block.
+             604                     ! */
+             605                     !inline void fill_array64(uint64_t array[], int size) {
+             606                     !    assert(initialized);
+             607                     !    assert(idx == N32);
+             608                     !    assert(size % 2 == 0);
+             609                     !    assert(size >= N64);
+             610                     !
+             611                     !    gen_rand_array((w128_t *)array, size / 2);
+             612                     !    idx = N32;
+             613                     !
+             614                     !#if defined(BIG_ENDIAN64) && !defined(ONLY64)
+             615                     !    swap((w128_t *)array, size /2);
+             616                     !#endif
+             617                     !}
+             618                     !
+             619                     !/**
+             620                     ! * This function initializes the internal state array with a 32-bit
+             621                     ! * integer seed.
+             622                     ! *
+             623                     ! * @param seed a 32-bit integer used as the seed.
+             624                     ! */
+             625                     !void init_gen_rand(uint32_t seed) {
+             626                     subroutine init_gen_rand(seed)
+             627                         use MOD_SFMT
+             628                         implicit none
+             629                     
+             630                         integer*4:: seed
+             631                         integer:: i
+             632                         integer*8:: temp64
+             633                     
+             634                         psfmt32(0) = seed;
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      psfmt32
+                                   <<< Loop-information  End >>>
+             635     1   s   2s          do i=1, N32-1
+             636     1   s   2s              temp64 = ieor( psfmt32(i-1), ishft( psfmt32(i-1), -30 ) )
+             637     1   s   2s              temp64 = 1812433253_8 * temp64 + i
+             638     1   s   2s              psfmt32(i) = ibits( temp64, 0, 32 )
+             639     1   s   2s          end do
+             640                     
+             641                     
+             642                         idx = N32
+             643                         call period_certification()
+             644                     
+             645                     !original method by A.I.
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 762
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      psfmt64, psfmt32
+                                   <<< Loop-information  End >>>
+             646     1   s   7v          do i=0, N64-1
+             647     1   p   7v              psfmt64(i) = psfmt32(i*2 + 1)
+             648     1   p   7v              temp64 = psfmt32(i*2)
+             649     1   p   7v              temp64 = iand(temp64, 4294967295_8)
+             650     1   p   7v              psfmt64(i) = ior(ishft(psfmt64(i), 32), temp64)
+             651     1   p   7v          end do
+             652                     
+             653                         initialized = 1
+             654                     end subroutine
+
+ Procedure information
+   Lines      : 117
+   Statements : 22
+   Stack(byte): 0
+   Prefetch num: 0
+
+ External function subprogram "genrand_res53"
+  (inc)(line-no.)(nest)(optimize)
+             655                     !
+             656                     !/**
+             657                     ! * This function initializes the internal state array,
+             658                     ! * with an array of 32-bit integers used as the seeds
+             659                     ! * @param init_key the array of 32-bit integers, used as a seed.
+             660                     ! * @param key_length the length of init_key.
+             661                     ! */
+             662                     !void init_by_array(uint32_t init_key[], int key_length) {
+             663                     !    int i, j, count;
+             664                     !    uint32_t r;
+             665                     !    int lag;
+             666                     !    int mid;
+             667                     !    int size = N * 4;
+             668                     !
+             669                     !    if (size >= 623) {
+             670                     !   lag = 11;
+             671                     !    } else if (size >= 68) {
+             672                     !   lag = 7;
+             673                     !    } else if (size >= 39) {
+             674                     !   lag = 5;
+             675                     !    } else {
+             676                     !   lag = 3;
+             677                     !    }
+             678                     !    mid = (size - lag) / 2;
+             679                     !
+             680                     !    memset(sfmt, 0x8b, sizeof(sfmt));
+             681                     !    if (key_length + 1 > N32) {
+             682                     !   count = key_length + 1;
+             683                     !    } else {
+             684                     !   count = N32;
+             685                     !    }
+             686                     !    r = func1(psfmt32[idxof(0)] ^ psfmt32[idxof(mid)]
+             687                     !         ^ psfmt32[idxof(N32 - 1)]);
+             688                     !    psfmt32[idxof(mid)] += r;
+             689                     !    r += key_length;
+             690                     !    psfmt32[idxof(mid + lag)] += r;
+             691                     !    psfmt32[idxof(0)] = r;
+             692                     !    i = 1;
+             693                     !    count--;
+             694                     !    for (i = 1, j = 0; (j < count) && (j < key_length); j++) {
+             695                     !   r = func1(psfmt32[idxof(i)] ^ psfmt32[idxof((i + mid) % N32)]
+             696                     !         ^ psfmt32[idxof((i + N32 - 1) % N32)]);
+             697                     !   psfmt32[idxof((i + mid) % N32)] += r;
+             698                     !   r += init_key[j] + i;
+             699                     !   psfmt32[idxof((i + mid + lag) % N32)] += r;
+             700                     !   psfmt32[idxof(i)] = r;
+             701                     !   i = (i + 1) % N32;
+             702                     !    }
+             703                     !    for (; j < count; j++) {
+             704                     !   r = func1(psfmt32[idxof(i)] ^ psfmt32[idxof((i + mid) % N32)]
+             705                     !         ^ psfmt32[idxof((i + N32 - 1) % N32)]);
+             706                     !   psfmt32[idxof((i + mid) % N32)] += r;
+             707                     !   r += i;
+             708                     !   psfmt32[idxof((i + mid + lag) % N32)] += r;
+             709                     !   psfmt32[idxof(i)] = r;
+             710                     !   i = (i + 1) % N32;
+             711                     !    }
+             712                     !    for (j = 0; j < N32; j++) {
+             713                     !   r = func2(psfmt32[idxof(i)] + psfmt32[idxof((i + mid) % N32)]
+             714                     !         + psfmt32[idxof((i + N32 - 1) % N32)]);
+             715                     !   psfmt32[idxof((i + mid) % N32)] ^= r;
+             716                     !   r -= i;
+             717                     !   psfmt32[idxof((i + mid + lag) % N32)] ^= r;
+             718                     !   psfmt32[idxof(i)] = r;
+             719                     !   i = (i + 1) % N32;
+             720                     !    }
+             721                     !
+             722                     !    idx = N32;
+             723                     !    period_certification();
+             724                     !    initialized = 1;
+             725                     !}
+             726                     
+             727                     
+             728                     !/** generates a random number on [0,1) with 53-bit resolution*/
+             729                     real*8 function genrand_res53()
+             730                         integer*8:: gen_rand64
+             731                         integer*8:: i
+             732                         i = gen_rand64()
+             733                         i = ishft(i, -1)
+             734                         genrand_res53 = dble(i) * (1d0/9223372036854775808d0)
+             735                     end function
+             736                     
+
+ Procedure information
+   Lines      : 82
+   Statements : 7
+   Stack(byte): 16
+   Prefetch num: 0
+
+ Total information
+   Procedures       : 10
+   Total lines      : 736
+   Total statements : 161
+   Total stack(byte): 48
+   Total prefetch num: 0
+

@@ -1,0 +1,346 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:56:01 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : letkf.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Main program "letkf"
+  (inc)(line-no.)(nest)(optimize)
+               1                     PROGRAM letkf
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Main program of LETKF
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   01/16/2009 Takemasa Miyoshi  created
+               8                     !
+               9                     !=======================================================================
+              10                     !$USE OMP_LIB
+              11                       USE common
+              12                       USE common_mpi
+              13                       USE common_time
+              14                       USE common_speedy
+              15                       USE common_mpi_speedy
+              16                       USE common_letkf
+              17                       USE letkf_obs
+              18                       USE letkf_tools
+              19                       USE interpolate
+              20                     
+              21                       IMPLICIT NONE
+              22                       REAL(r_size),ALLOCATABLE :: gues3d(:,:,:,:)
+              23                       REAL(r_size),ALLOCATABLE :: gues2d(:,:,:)
+              24                       REAL(r_size),ALLOCATABLE :: anal3d(:,:,:,:)
+              25                       REAL(r_size),ALLOCATABLE :: anal2d(:,:,:)
+              26                       !!REAL(r_size) :: rtimer00,rtimer
+              27                       INTEGER :: ierr
+              28                       CHARACTER(11) :: stdoutf='NOUT-000000'
+              29                       CHARACTER(4)  :: guesf='gs00'
+              30                     
+              31                       namelist / letkf_param / sigma_obs, nbv, pymdh, ymdh,                    &
+              32                         logic_wout, logic_wsth, logic_wint, dastype,                           &
+              33                         resample_m, type_pfmtx, type_relax, alph_relax, fgt_factor, gamma_gmpf
+              34                     !-----------------------------------------------------------------------
+              35                     ! Initial settings
+              36                     !-----------------------------------------------------------------------
+              37                       rtimer00 = MPI_WTIME() ; rtimer01 = rtimer00
+              38                       CALL initialize_mpi
+              39                       CALL set_timer
+              40                     
+              41                      !==> SK 20180607 for exp.
+              42                       open(1,file='letkf.cnf')
+              43                         read(1,nml=letkf_param)
+              44                       close(1)
+              45                     !
+              46                       WRITE(stdoutf(9:11), '(I3.3)') myrank
+              47                       WRITE(6,'(3A,I3.3)') 'STDOUT goes to ',stdoutf,' for MYRANK ', myrank
+              48                       OPEN(6,FILE=stdoutf)
+              49                       WRITE(6,'(A,I3.3,2A)') 'MYRANK=',myrank,', STDOUTF=',stdoutf
+              50                     !
+              51                       WRITE(6,'(A)') '============================================='
+              52                       WRITE(6,'(A)') '  LOCAL ENSEMBLE TRANSFORM KALMAN FILTERING  '
+              53                       WRITE(6,'(A)') '                                             '
+              54                       WRITE(6,'(A)') '   LL      EEEEEE  TTTTTT  KK  KK  FFFFFF    '
+              55                       WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
+              56                       WRITE(6,'(A)') '   LL      EEEEE     TT    KKK     FFFFF     '
+              57                       WRITE(6,'(A)') '   LL      EE        TT    KK KK   FF        '
+              58                       WRITE(6,'(A)') '   LLLLLL  EEEEEE    TT    KK  KK  FF        '
+              59                       WRITE(6,'(A)') '                                             '
+              60                       WRITE(6,'(A)') '             WITHOUT LOCAL PATCH             '
+              61                       WRITE(6,'(A)') '                                             '
+              62                       WRITE(6,'(A)') '          Coded by Takemasa Miyoshi          '
+              63                       WRITE(6,'(A)') '  Based on Ott et al (2004) and Hunt (2005)  '
+              64                       WRITE(6,'(A)') '  Tested by Miyoshi and Yamane (2006)        '
+              65                       WRITE(6,'(A)') '============================================='
+              66                       WRITE(6,'(A)') '              LETKF PARAMETERS               '
+              67                       WRITE(6,'(A)') ' ------------------------------------------- '
+              68                       WRITE(6,'(A,I15)')   '   nbv             :',nbv
+              69                       WRITE(6,'(A,I15)')   '   nslots          :',nslots
+              70                       WRITE(6,'(A,I15)')   '   nbslot          :',nbslot
+              71                       WRITE(6,'(A,F15.2)') '   sigma_obs       :',sigma_obs
+              72                       WRITE(6,'(A,F15.2)') '   sigma_obsv      :',sigma_obsv
+              73                       WRITE(6,'(A,F15.2)') '   sigma_obst      :',sigma_obst
+              74                       WRITE(6,'(A,i)')     '   cymdh           :',ymdh
+              75                       WRITE(6,'(A,i)')     '   pymdh           :',pymdh
+              76                       WRITE(6,'(A,f)')     '   sigma_obs       :',sigma_obs
+              77                       WRITE(6,'(A,L)')     '   logic_wout      :',logic_wout
+              78                       WRITE(6,'(A,L)')     '   logic_wsth      :',logic_wsth
+              79                       WRITE(6,'(A,L)')     '   logic_wint      :',logic_wint
+              80                       WRITE(6,'(A,I,A)')   '   type_relax      :',type_relax, "  0:no, 1:RTPP, 2:RTPS"
+              81                       WRITE(6,'(A,F)')     '   alph_relax      :',alph_relax
+              82                     
+              83                       WRITE(6,'(A,I)')     '   LPF,resample_m  :',resample_m
+              84                       WRITE(6,'(A,F)')     '   LPF,fgt_factor  :',fgt_factor
+              85                       WRITE(6,'(A,F)')     '   LPF,gamma_gmpf  :',gamma_gmpf
+              86                       WRITE(6,'(A,I,A)')   '   LPF,type_pfmtx  :',type_pfmtx, "  1: Potthast et al. (2019;MWR)  2: Kondo et al. (2020)"
+              87                       WRITE(6,'(A,I)')     '   LPF,dastype     :',dastype
+              88                       IF( dastype==0 ) WRITE(6,'(A)') '   dastype=0 ::   mean update :: LETKF,   ptb update :: LETKF'
+              89                       IF( dastype==1 ) WRITE(6,'(A)') '   dastype=1 ::   mean update :: LETKF,   ptb update :: DEBUG, LPF only for mean update'
+              90                       IF( dastype==2 ) WRITE(6,'(A)') '   dastype=2 ::   mean update :: LPF  ,   ptb update :: LAPF  resampling'
+              91                       IF( dastype==3 ) WRITE(6,'(A)') '   dastype=3 ::   mean update :: LPF  ,   ptb update :: LPFGM resampling'
+              92                     
+              93                       WRITE(6,'(A)') '============================================='
+              94                       CALL set_common_speedy
+              95                       CALL set_common_mpi_speedy
+              96                       ALLOCATE(gues3d(nij1,nlev,nbv,nv3d))
+              97                       ALLOCATE(gues2d(nij1,nbv,nv2d))
+              98                       ALLOCATE(anal3d(nij1,nlev,nbv,nv3d))
+              99                       ALLOCATE(anal2d(nij1,nbv,nv2d))
+             100                     !
+             101                       rtimer = MPI_WTIME()
+             102                     !  WRITE(6,'(A,2F10.2)') '### TIMER(INITIALIZE):',rtimer-rtimer01,rtimer-rtimer00
+             103                       rtimerl(1) = rtimer-rtimer01
+             104                       rtimer01 = rtimer
+             105                     !-----------------------------------------------------------------------
+             106                     ! Observations
+             107                     !-----------------------------------------------------------------------
+             108                       !
+             109                       ! CONVENTIONAL OBS
+             110                       !
+             111                       CALL set_letkf_obs
+             112                     !
+             113                       rtimer = MPI_WTIME()
+             114                     !  WRITE(6,'(A,2F10.2)') '### TIMER(READ_OBS):',rtimer-rtimer01,rtimer-rtimer00
+             115                       rtimerl(2) = rtimer-rtimer01
+             116                       rtimer01=rtimer
+             117                     !-----------------------------------------------------------------------
+             118                     ! First guess ensemble
+             119                     !-----------------------------------------------------------------------
+             120                       !
+             121                       ! READ GUES
+             122                       !
+             123                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             124                       WRITE(guesf(3:4),'(I2.2)') nbslot
+             125                       CALL read_ens_mpi(guesf,nbv,gues3d,gues2d)
+             126                       !
+             127                       ! WRITE ENS MEAN and SPRD
+             128                       !
+             129                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             130                       CALL write_ensmspr_mpi('gues',nbv,gues3d,gues2d)
+             131                     !
+             132                       rtimer = MPI_WTIME()
+             133                     !  WRITE(6,'(A,2F10.2)') '### TIMER(READ_GUES):',rtimer-rtimer01,rtimer-rtimer00
+             134                       rtimerl(3) = rtimer-rtimer01
+             135                       rtimer01=rtimer
+             136                     !-----------------------------------------------------------------------
+             137                     ! Data Assimilation
+             138                     !-----------------------------------------------------------------------
+             139                       !
+             140                       ! LETKF
+             141                       !
+             142                     
+             143                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             144                     ! --------------->
+             145                       CALL das_letkf(gues3d,gues2d,anal3d,anal2d)
+             146                     ! --------------->
+             147                     
+             148                       rtimer = MPI_WTIME()
+             149                     !  WRITE(6,'(A,2F10.2)') '### TIMER(DAS_LETKF):',rtimer-rtimer01,rtimer-rtimer00
+             150                       rtimerl(4) = rtimer-rtimer01
+             151                       rtimer01=rtimer
+             152                     !-----------------------------------------------------------------------
+             153                     ! Analysis ensemble
+             154                     !-----------------------------------------------------------------------
+             155                       !
+             156                       ! WRITE ANAL
+             157                       !
+             158                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             159                       CALL write_ens_mpi('anal',nbv,anal3d,anal2d)
+             160                       !
+             161                       ! WRITE ENS MEAN and SPRD
+             162                       !
+             163                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             164                       CALL write_ensmspr_mpi('anal',nbv,anal3d,anal2d)
+             165                     !
+             166                       rtimer = MPI_WTIME()
+             167                     !  WRITE(6,'(A,2F10.2)') '### TIMER(WRITE_ANAL):',rtimer-rtimer01,rtimer-rtimer00
+             168                       rtimerl(5) = rtimer-rtimer01
+             169                       rtimer01=rtimer
+             170                     !-----------------------------------------------------------------------
+             171                     ! Monitor
+             172                     !-----------------------------------------------------------------------
+             173                       !SK follows KK!CALL monit_mean('gues')
+             174                       !SK follows KK!CALL monit_mean('anal')
+             175                     !
+             176                       rtimer = MPI_WTIME()
+             177                     ! WRITE(6,'(A,2F10.2)') '### TIMER(MONIT_MEAN):',rtimer-rtimer01,rtimer-rtimer00
+             178                       rtimerl(6) = rtimer-rtimer01
+             179                       rtimer01=rtimer
+             180                     
+             181                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             182                       CALL MPI_Gather(rtimerl,slot,MPI_REAL8,rtimer_all,slot,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
+             183                       !KK!CALL MPI_Gather(ltimerl,slot+1,MPI_REAL8,ltimer_all,slot+1,MPI_REAL8,0,MPI_COMM_WORLD,ierr)
+             184                     
+             185                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_00)  :', ltimerl(0),  ltimerl(0)/ sum(rtimerl(:))*100, ' %', ltimerl(0)/ sum(ltimerl(:))*100, ' %'
+             186                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_01)  :', ltimerl(1),  ltimerl(1)/ sum(rtimerl(:))*100, ' %', ltimerl(1)/ sum(ltimerl(:))*100, ' %'
+             187                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_02)  :', ltimerl(2),  ltimerl(2)/ sum(rtimerl(:))*100, ' %', ltimerl(2)/ sum(ltimerl(:))*100, ' %'
+             188                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_03)  :', ltimerl(3),  ltimerl(3)/ sum(rtimerl(:))*100, ' %', ltimerl(3)/ sum(ltimerl(:))*100, ' %'
+             189                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_04)  :', ltimerl(4),  ltimerl(4)/ sum(rtimerl(:))*100, ' %', ltimerl(4)/ sum(ltimerl(:))*100, ' %'
+             190                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_05)  :', ltimerl(5),  ltimerl(5)/ sum(rtimerl(:))*100, ' %', ltimerl(5)/ sum(ltimerl(:))*100, ' %'
+             191                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_06)  :', ltimerl(6),  ltimerl(6)/ sum(rtimerl(:))*100, ' %', ltimerl(6)/ sum(ltimerl(:))*100, ' %'
+             192                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_07)  :', ltimerl(7),  ltimerl(7)/ sum(rtimerl(:))*100, ' %', ltimerl(7)/ sum(ltimerl(:))*100, ' %'
+             193                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_08)  :', ltimerl(8),  ltimerl(8)/ sum(rtimerl(:))*100, ' %', ltimerl(8)/ sum(ltimerl(:))*100, ' %'
+             194                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_09)  :', ltimerl(9),  ltimerl(9)/ sum(rtimerl(:))*100, ' %', ltimerl(9)/ sum(ltimerl(:))*100, ' %'
+             195                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_10)  :', ltimerl(10), ltimerl(10)/sum(rtimerl(:))*100, ' %', ltimerl(10)/sum(ltimerl(:))*100, ' %'
+             196                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_11)  :', ltimerl(11), ltimerl(11)/sum(rtimerl(:))*100, ' %', ltimerl(11)/sum(ltimerl(:))*100, ' %'
+             197                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_12)  :', ltimerl(12), ltimerl(12)/sum(rtimerl(:))*100, ' %', ltimerl(12)/sum(ltimerl(:))*100, ' %'
+             198                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_13)  :', ltimerl(13), ltimerl(13)/sum(rtimerl(:))*100, ' %', ltimerl(13)/sum(ltimerl(:))*100, ' %'
+             199                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_14)  :', ltimerl(14), ltimerl(14)/sum(rtimerl(:))*100, ' %', ltimerl(14)/sum(ltimerl(:))*100, ' %'
+             200                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_15)  :', ltimerl(15), ltimerl(15)/sum(rtimerl(:))*100, ' %', ltimerl(15)/sum(ltimerl(:))*100, ' %'
+             201                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkf_16)  :', ltimerl(16), ltimerl(16)/sum(rtimerl(:))*100, ' %', ltimerl(16)/sum(ltimerl(:))*100, ' %'
+             202                     !KK!    WRITE(6,'(A,2F10.2,A,F10.2,A)') '### TIMER(letkfsum)  :', sum(ltimerl(:)), sum(ltimerl(:))/sum(rtimerl(:))*100, ' %', sum(ltimerl(:))/sum(ltimerl(:))*100, ' %'
+             203                     
+             204                         WRITE(6,*) ''
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             205             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(INITIALIZE):', rtimerl(1), rtimerl(1)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             206             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(READ_OBS)  :', rtimerl(2), rtimerl(2)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             207             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(READ_GUES) :', rtimerl(3), rtimerl(3)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             208             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(DAS_LETKF) :', rtimerl(4), rtimerl(4)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             209             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(WRITE_ANAL):', rtimerl(5), rtimerl(5)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             210             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(MONIT_MEAN):', rtimerl(6), rtimerl(6)/sum(rtimerl(:))*100, ' %'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimerl
+                                   <<< Loop-information  End >>>
+             211             8v          WRITE(6,'(A,2F10.2,A)') '### TIMER(TOTAL)     :', sum(rtimerl(:)), sum(rtimerl(:))/sum(rtimerl(:))*100, ' %'
+             212                     
+             213                     !-----------------------------------------------------------------------
+             214                     ! Finalize
+             215                     !-----------------------------------------------------------------------
+             216                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             217                       CALL finalize_mpi
+             218                       STOP
+             219                     END PROGRAM letkf
+
+ Diagnostic messages: program name(letkf)
+   jwd8220o-i  "letkf.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "letkf.f90", line 205: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 205: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 206: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 206: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 207: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 207: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 208: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 208: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 209: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 209: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 210: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 210: Method of calculating sum or product is changed.
+   jwd8209o-i  "letkf.f90", line 211: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8208o-i  "letkf.f90", line 211: Method of calculating sum or product is changed.
+
+ Procedure information
+   Lines      : 219
+   Statements : 121
+   Stack(byte): 64
+   Prefetch num: 0
+
+ Total information
+   Procedures       : 1
+   Total lines      : 219
+   Total statements : 121
+   Total stack(byte): 64
+   Total prefetch num: 0
+

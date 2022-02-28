@@ -1,0 +1,783 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:55:02 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_speedy.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_speedy"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_speedy
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Common Information for SPEEDY
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   10/15/2004 Takemasa Miyoshi  created
+               8                     !   01/23/2009 Takemasa Miyoshi  modified
+               9                     !
+              10                     !=======================================================================
+              11                     !$USE OMP_LIB
+              12                       USE common
+              13                       IMPLICIT NONE
+              14                       PUBLIC
+              15                     !-----------------------------------------------------------------------
+              16                     ! General parameters
+              17                     !-----------------------------------------------------------------------
+              18                       INTEGER,PARAMETER :: nlon=96
+              19                       INTEGER,PARAMETER :: nlat=nlon/2
+              20                       INTEGER,PARAMETER :: nlev=7
+              21                       INTEGER,PARAMETER :: nv3d=4 ! u,v,t,q
+              22                       INTEGER,PARAMETER :: nv2d=2 ! ps,rain
+              23                       INTEGER,PARAMETER :: iv3d_u=1
+              24                       INTEGER,PARAMETER :: iv3d_v=2
+              25                       INTEGER,PARAMETER :: iv3d_t=3
+              26                       INTEGER,PARAMETER :: iv3d_q=4
+              27                       INTEGER,PARAMETER :: iv2d_ps=1
+              28                       INTEGER,PARAMETER :: iv2d_rain=2
+              29                       INTEGER,PARAMETER :: nij0=nlon*nlat
+              30                       INTEGER,PARAMETER :: nlevall=nlev*nv3d+nv2d
+              31                       INTEGER,PARAMETER :: ngpv=nij0*nlevall
+              32                       REAL(r_size),SAVE :: lon(nlon)
+              33                       REAL(r_size),SAVE :: lat(nlat)
+              34                       REAL(r_size),SAVE :: sig(nlev)
+              35                       REAL(r_size),SAVE :: dx(nlat)
+              36                       REAL(r_size),SAVE :: dy(nlat)
+              37                       REAL(r_size),SAVE :: dy2(nlat)
+              38                       REAL(r_size),SAVE :: fcori(nlat)
+              39                       REAL(r_size),SAVE :: phi0(nlon,nlat)
+              40                       CHARACTER(4),SAVE :: element(nv3d+nv2d)
+              41                     
+              42                       !===> letkf.cnf
+              43                       REAL(r_size),SAVE :: sigma_obs  = 9999.0d3
+              44                       INTEGER,     SAVE :: pymdh      = 0                             ! KK
+              45                       INTEGER,     SAVE :: ymdh       = 0                             ! KK
+              46                       LOGICAL,     SAVE :: logic_wout = .false.
+              47                       LOGICAL,     SAVE :: logic_wsth = .false.
+              48                       LOGICAL,     SAVE :: logic_wint = .false.
+              49                       INTEGER,     SAVE :: dastype    = 0
+              50                       INTEGER,     SAVE :: resample_m = 0
+              51                       INTEGER,     SAVE :: type_pfmtx = 0
+              52                       INTEGER,     SAVE :: type_relax = 0
+              53                       REAL(r_size),SAVE :: alph_relax = 0.0d0
+              54                       REAL(r_size),SAVE :: fgt_factor = 1.0d0
+              55                       REAL(r_size),SAVE :: gamma_gmpf = 1.0d0
+              56                     CONTAINS
+              57                     !-----------------------------------------------------------------------
+              58                     ! Set the parameters
+              59                     !-----------------------------------------------------------------------
+              60                     SUBROUTINE set_common_speedy
+              61                       IMPLICIT NONE
+              62                       INTEGER :: i,j
+              63                     
+              64                       WRITE(6,'(A)') 'Hello from set_common_speedy'
+              65                       !
+              66                       ! Elements
+              67                       !
+              68                       element(iv3d_u) = 'U   '
+              69                       element(iv3d_v) = 'V   '
+              70                       element(iv3d_t) = 'T   '
+              71                       element(iv3d_q) = 'Q   '
+              72                       element(nv3d+iv2d_ps)   = 'PS  '
+              73                       element(nv3d+iv2d_rain) = 'RAIN'
+              74                       !
+              75                       ! Lon, Lat, Sigma
+              76                       !
+              77                     !$OMP PARALLEL DO PRIVATE(i)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lon
+                                   <<< Loop-information  End >>>
+              78     1   s   8v        DO i=1,nlon
+              79     1   p   8v          lon(i) = 360.d0/nlon*(i-1)
+              80     1   p   8v        END DO
+              81                     !$OMP END PARALLEL DO
+              82                       lat(1) = -87.159d0
+              83                       lat(2) = -83.479d0
+              84                       lat(3) = -79.777d0
+              85                       lat(4) = -76.070d0
+              86                       lat(5) = -72.362d0
+              87                       lat(6) = -68.652d0
+              88                       lat(7) = -64.942d0
+              89                       lat(8) = -61.232d0
+              90                       lat(9) = -57.521d0
+              91                       lat(10)= -53.810d0
+              92                       lat(11)= -50.099d0
+              93                       lat(12)= -46.389d0
+              94                       lat(13)= -42.678d0
+              95                       lat(14)= -38.967d0
+              96                       lat(15)= -35.256d0
+              97                       lat(16)= -31.545d0
+              98                       lat(17)= -27.833d0
+              99                       lat(18)= -24.122d0
+             100                       lat(19)= -20.411d0
+             101                       lat(20)= -16.700d0
+             102                       lat(21)= -12.989d0
+             103                       lat(22)=  -9.278d0
+             104                       lat(23)=  -5.567d0
+             105                       lat(24)=  -1.856d0
+             106                       lat(25)=   1.856d0
+             107                       lat(26)=   5.567d0
+             108                       lat(27)=   9.278d0
+             109                       lat(28)=  12.989d0
+             110                       lat(29)=  16.700d0
+             111                       lat(30)=  20.411d0
+             112                       lat(31)=  24.122d0
+             113                       lat(32)=  27.833d0
+             114                       lat(33)=  31.545d0
+             115                       lat(34)=  35.256d0
+             116                       lat(35)=  38.967d0
+             117                       lat(36)=  42.678d0
+             118                       lat(37)=  46.389d0
+             119                       lat(38)=  50.099d0
+             120                       lat(39)=  53.810d0
+             121                       lat(40)=  57.521d0
+             122                       lat(41)=  61.232d0
+             123                       lat(42)=  64.942d0
+             124                       lat(43)=  68.652d0
+             125                       lat(44)=  72.362d0
+             126                       lat(45)=  76.070d0
+             127                       lat(46)=  79.777d0
+             128                       lat(47)=  83.479d0
+             129                       lat(48)=  87.159d0
+             130                     
+             131                       sig(1) = .95d0
+             132                       sig(2) = .835d0
+             133                       sig(3) = .685d0
+             134                       sig(4) = .51d0
+             135                       sig(5) = .34d0
+             136                       sig(6) = .2d0
+             137                       sig(7) = .08d0
+             138                       !
+             139                       ! dx and dy
+             140                       !
+             141                     !$OMP PARALLEL
+             142                     !$OMP WORKSHARE
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 44
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat, dx
+                                   <<< Loop-information  End >>>
+             143        pp   4v        dx(:) = 2.0d0 * pi * re * cos(lat(:) * pi / 180.0d0) / REAL(nlon,r_size)
+             144                     !$OMP END WORKSHARE
+             145                     
+             146                     !$OMP DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             147     1   s   fv        DO i=1,nlat-1
+             148     1   p   fv          dy(i) = 2.0d0 * pi * re * (lat(i+1) - lat(i)) / 360.0d0
+             149     1   p   fv        END DO
+             150                     !$OMP END DO
+             151                     !$OMP END PARALLEL
+             152                       dy(nlat) = 2.0d0 * pi * re * (90.0d0 - lat(nlat)) / 180.0d0
+             153                     
+             154                     !$OMP PARALLEL DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             155     1   s   fv        DO i=2,nlat
+             156     1   p   fv          dy2(i) = (dy(i-1) + dy(i)) * 0.5d0
+             157     1   p   fv        END DO
+             158                     !$OMP END PARALLEL DO
+             159                       dy2(1) = (dy(nlat) + dy(1)) * 0.5d0
+             160                       !
+             161                       ! Corioris parameter
+             162                       !
+             163                     !$OMP PARALLEL WORKSHARE
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 44
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat, fcori
+                                   <<< Loop-information  End >>>
+             164        pp   4v        fcori(:) = 2.0d0 * r_omega * sin(lat(:)*pi/180.0d0)
+             165                     !$OMP END PARALLEL WORKSHARE
+             166                       !
+             167                       ! Surface geoptential (Read Orography file)
+             168                       !
+             169                       !JSS2,BUG???,20190417SK!READ(21) phi0
+             170                       !!open(31,file="./orography_t30.dat",form="unformatted",access="sequential",status="old")
+             171                       !!  read(31) phi0(:,:)
+             172                       !!close(31)
+             173                       open(31, file="./orography_t30.dat", form="unformatted")  ! KK
+             174                         READ(31) phi0
+             175                       close(31)
+             176                     
+             177                       RETURN
+             178                     END SUBROUTINE set_common_speedy
+             179                     !-----------------------------------------------------------------------
+             180                     ! File I/O
+             181                     !-----------------------------------------------------------------------
+             182                     !-- Read a grid file ---------------------------------------------------
+             183                     SUBROUTINE read_grd(filename,v3d,v2d)
+             184                       IMPLICIT NONE
+             185                       CHARACTER(*),INTENT(IN) :: filename
+             186                       REAL(r_size),INTENT(OUT) :: v3d(nlon,nlat,nlev,nv3d)
+             187                       REAL(r_size),INTENT(OUT) :: v2d(nlon,nlat,nv2d)
+             188                       REAL(r_sngl) :: buf4(nlon,nlat)
+             189                       INTEGER :: iunit,iolen
+             190                       INTEGER :: k,n,irec
+             191                     
+             192                       iunit=11
+             193                       INQUIRE(IOLENGTH=iolen) iolen
+             194                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             195                     
+             196                       irec=1
+             197     1                 DO n=1,nv3d
+             198     2                   DO k=1,nlev
+             199     2                     READ(iunit,REC=irec) buf4
+             200     2                     irec = irec + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, buf4
+                                   <<< Loop-information  End >>>
+             201     2  pp   8v            v3d(:,:,k,n) = REAL(buf4,r_size)
+             202     2                   END DO
+             203     1                 END DO
+             204                     
+             205     1                 DO n=1,nv2d
+             206     1                   READ(iunit,REC=irec) buf4
+             207     1                   irec = irec + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, buf4
+                                   <<< Loop-information  End >>>
+             208     1  pp   8v          v2d(:,:,n) = REAL(buf4,r_size)
+             209     1                 END DO
+             210                     
+             211                       CLOSE(iunit)
+             212                     
+             213                       RETURN
+             214                     END SUBROUTINE read_grd
+             215                     
+             216                     SUBROUTINE read_grd4(filename,v3d,v2d)
+             217                       IMPLICIT NONE
+             218                       CHARACTER(*),INTENT(IN) :: filename
+             219                       REAL(r_sngl),INTENT(OUT) :: v3d(nlon,nlat,nlev,nv3d)
+             220                       REAL(r_sngl),INTENT(OUT) :: v2d(nlon,nlat,nv2d)
+             221                       INTEGER :: iunit,iolen
+             222                       INTEGER :: i,j,k,n,irec
+             223                     
+             224                       iunit=11
+             225                       INQUIRE(IOLENGTH=iolen) iolen
+             226                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             227                     
+             228                       irec=1
+             229     1                 DO n=1,nv3d
+             230     2   s               DO k=1,nlev
+             231     2   s                 READ(iunit,REC=irec) ((v3d(i,j,k,n),i=1,nlon),j=1,nlat)
+             232     2   p                 irec = irec + 1
+             233     2   p               END DO
+             234     1                 END DO
+             235                     
+             236     1   s             DO n=1,nv2d
+             237     1   s               READ(iunit,REC=irec) ((v2d(i,j,n),i=1,nlon),j=1,nlat)
+             238     1   s               irec = irec + 1
+             239     1   s             END DO
+             240                     
+             241                       CLOSE(iunit)
+             242                     
+             243                       RETURN
+             244                     END SUBROUTINE read_grd4
+             245                     
+             246                     SUBROUTINE read_grd4_1atm(filename,v3d,v2d)
+             247                       IMPLICIT NONE
+             248                       CHARACTER(*),INTENT(IN) :: filename
+             249                       REAL(r_sngl),INTENT(OUT) :: v3d(nlon,nlat,nlev,nv3d)
+             250                       REAL(r_sngl),INTENT(OUT) :: v2d(nlon,nlat,nv2d)
+             251                       INTEGER :: iunit,iolen
+             252                       INTEGER :: i,j,k,n,irec
+             253                     
+             254                       iunit=11
+             255                       INQUIRE(IOLENGTH=iolen) iolen
+             256                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             257                     
+             258                       irec=1
+             259                     !  DO n=1,nv3d
+             260     1                 DO n=1,1
+             261     2   s               DO k=1,nlev
+             262     2   s                 READ(iunit,REC=irec) ((v3d(i,j,k,n),i=1,nlon),j=1,nlat)
+             263     2   p                 irec = irec + 1
+             264     2   p               END DO
+             265     1                 END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d
+                                   <<< Loop-information  End >>>
+             266     1  pp             DO n=2,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d
+                                   <<< Loop-information  End >>>
+             267     1   p   8v          v3d(:,:,:,n) = v3d(:,:,:,1)
+             268     1   p             END DO
+             269                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v2d
+                                   <<< Loop-information  End >>>
+             270     1  pp             DO n=1,nv2d
+             271     1                   !!READ(iunit,REC=irec) ((v2d(i,j,n),i=1,nlon),j=1,nlat)
+             272     1                   !!irec = irec + 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v2d
+                                   <<< Loop-information  End >>>
+             273     1   p   8v          v2d(:,:,n) = v3d(:,:,1,1)
+             274     1   p             END DO
+             275                       CLOSE(iunit)
+             276                     
+             277                       RETURN
+             278                     END SUBROUTINE read_grd4_1atm
+             279                     !-- Write a grid file -------------------------------------------------
+             280                     SUBROUTINE write_grd(filename,v3d,v2d)
+             281                       IMPLICIT NONE
+             282                       CHARACTER(*),INTENT(IN) :: filename
+             283                       REAL(r_size),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+             284                       REAL(r_size),INTENT(IN) :: v2d(nlon,nlat,nv2d)
+             285                       REAL(r_sngl) :: buf4(nlon,nlat)
+             286                       INTEGER :: iunit,iolen
+             287                       INTEGER :: k,n,irec
+             288                     
+             289                       iunit=55
+             290                       INQUIRE(IOLENGTH=iolen) iolen
+             291                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             292                     
+             293                       irec=1
+             294     1                 DO n=1,nv3d
+             295     2                   DO k=1,nlev
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      buf4, v3d
+                                   <<< Loop-information  End >>>
+             296     2  pp   8v            buf4 = REAL(v3d(:,:,k,n),r_sngl)
+             297     2                     WRITE(iunit,REC=irec) buf4
+             298     2                     irec = irec + 1
+             299     2                   END DO
+             300     1                 END DO
+             301                     
+             302     1                 DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      buf4, v2d
+                                   <<< Loop-information  End >>>
+             303     1  pp   8v          buf4 = REAL(v2d(:,:,n),r_sngl)
+             304     1                   WRITE(iunit,REC=irec) buf4
+             305     1                   irec = irec + 1
+             306     1                 END DO
+             307                     
+             308                       CLOSE(iunit)
+             309                     
+             310                       RETURN
+             311                     END SUBROUTINE write_grd
+             312                     
+             313                     SUBROUTINE write_grd4(filename,v3d,v2d)
+             314                       IMPLICIT NONE
+             315                       CHARACTER(*),INTENT(IN) :: filename
+             316                       REAL(r_sngl),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+             317                       REAL(r_sngl),INTENT(IN) :: v2d(nlon,nlat,nv2d)
+             318                       INTEGER :: iunit,iolen
+             319                       INTEGER :: i,j,k,n,irec
+             320                     
+             321                       iunit=55
+             322                       INQUIRE(IOLENGTH=iolen) iolen
+             323                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             324                     
+             325                       irec=1
+             326     1                 DO n=1,nv3d
+             327     2   s               DO k=1,nlev
+             328     2   s                 WRITE(iunit,REC=irec) ((v3d(i,j,k,n),i=1,nlon),j=1,nlat)
+             329     2   p                 irec = irec + 1
+             330     2   p               END DO
+             331     1                 END DO
+             332                     
+             333     1   s             DO n=1,nv2d
+             334     1   s               WRITE(iunit,REC=irec) ((v2d(i,j,n),i=1,nlon),j=1,nlat)
+             335     1   s               irec = irec + 1
+             336     1   s             END DO
+             337                     
+             338                       CLOSE(iunit)
+             339                     
+             340                       RETURN
+             341                     END SUBROUTINE write_grd4
+             342                     
+             343                     !--> P.A. 20180606 for wvec
+             344                     SUBROUTINE write_grd4_1atm(filename,v3d,v2d)
+             345                       IMPLICIT NONE
+             346                       CHARACTER(*),INTENT(IN) :: filename
+             347                       REAL(r_sngl),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+             348                       REAL(r_sngl),INTENT(IN) :: v2d(nlon,nlat,nv2d)
+             349                       INTEGER :: iunit,iolen
+             350                       INTEGER :: i,j,k,n,irec
+             351                     
+             352                       iunit=55
+             353                       INQUIRE(IOLENGTH=iolen) iolen
+             354                       OPEN(iunit,FILE=filename,FORM='unformatted',ACCESS='direct',RECL=nij0*iolen)
+             355                     
+             356                       irec=1
+             357                       !!DO n=1,nv3d
+             358     1                 DO n=1,1
+             359     2   s               DO k=1,nlev
+             360     2   s                 WRITE(iunit,REC=irec) ((v3d(i,j,k,n),i=1,nlon),j=1,nlat)
+             361     2   p                 irec = irec + 1
+             362     2   p               END DO
+             363     1                 END DO
+             364                     
+             365                       !!DO n=1,nv2d
+             366                       !!  WRITE(iunit,REC=irec) ((v2d(i,j,n),i=1,nlon),j=1,nlat)
+             367                       !!  irec = irec + 1
+             368                       !!END DO
+             369                     
+             370                       CLOSE(iunit)
+             371                     
+             372                       RETURN
+             373                     END SUBROUTINE write_grd4_1atm
+             374                     !-----------------------------------------------------------------------
+             375                     ! p_full
+             376                     !-----------------------------------------------------------------------
+             377                     SUBROUTINE calc_pfull(ix,jy,ps,p_full)
+             378                       IMPLICIT NONE
+             379                       INTEGER,INTENT(IN) :: ix,jy
+             380                       REAL(r_size),INTENT(IN) :: ps(ix,jy)
+             381                       REAL(r_size),INTENT(OUT) :: p_full(ix,jy,nlev)
+             382                       INTEGER :: i,j,k
+             383                     
+             384                     !$OMP PARALLEL DO PRIVATE(i,j,k)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ps, p_full
+                                   <<<    PREFETCH(SOFT) : 2
+                                   <<<     SEQUENTIAL : 2
+                                   <<<      sig: 2
+                                   <<< Loop-information  End >>>
+             385     1  pp             DO k=1,nlev
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      p_full, ps
+                                   <<< Loop-information  End >>>
+             386     2   p   8v          DO j=1,jy
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<< Loop-information  End >>>
+             387     3   p   8v            DO i=1,ix
+             388     3   p   8v              p_full(i,j,k) = ps(i,j) * sig(k)
+             389     3   p   8v            END DO
+             390     2   p   8v          END DO
+             391     1   p             END DO
+             392                     !$OMP END PARALLEL DO
+             393                     
+             394                       RETURN
+             395                     END SUBROUTINE calc_pfull
+             396                     !-----------------------------------------------------------------------
+             397                     ! Monitor
+             398                     !-----------------------------------------------------------------------
+             399                     SUBROUTINE monit_grd(v3d,v2d)
+             400                       IMPLICIT NONE
+             401                       REAL(r_size),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+             402                       REAL(r_size),INTENT(IN) :: v2d(nlon,nlat,nv2d)
+             403                       INTEGER :: k,n
+             404                     
+             405     1                 DO k=1,nlev
+             406     1                   WRITE(6,'(I2,A)') k,'th level'
+             407     2                   DO n=1,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d
+                                   <<< Loop-information  End >>>
+             408     2       8v            WRITE(6,'(A,2ES10.2)') element(n),MAXVAL(v3d(:,:,k,n)),MINVAL(v3d(:,:,k,n))
+             409     2                   END DO
+             410     1                 END DO
+             411                     
+             412     1                 DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d
+                                   <<< Loop-information  End >>>
+             413     1       8v          WRITE(6,'(A,2ES10.2)') element(nv3d+n),MAXVAL(v2d(:,:,n)),MINVAL(v2d(:,:,n))
+             414     1                 END DO
+             415                     
+             416                       RETURN
+             417                     END SUBROUTINE monit_grd
+             418                     !-----------------------------------------------------------------------
+             419                     ! Ensemble manipulations
+             420                     !-----------------------------------------------------------------------
+             421                     SUBROUTINE ensmean_grd(member,nij,v3d,v2d,v3dm,v2dm)
+             422                       IMPLICIT NONE
+             423                       INTEGER,INTENT(IN) :: member
+             424                       INTEGER,INTENT(IN) :: nij
+             425                       REAL(r_size),INTENT(IN) :: v3d(nij,nlev,member,nv3d)
+             426                       REAL(r_size),INTENT(IN) :: v2d(nij,member,nv2d)
+             427                       REAL(r_size),INTENT(OUT) :: v3dm(nij,nlev,nv3d)
+             428                       REAL(r_size),INTENT(OUT) :: v2dm(nij,nv2d)
+             429                       INTEGER :: i,k,m,n
+             430                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SPLIT
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v3dm
+                                   <<< Loop-information  End >>>
+             431     1  pp   8v        DO n=1,nv3d
+             432     1               !$OMP PARALLEL DO PRIVATE(i,k,m)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v3dm
+                                   <<< Loop-information  End >>>
+             433     2   p   8v          DO k=1,nlev
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED
+                                   <<<    COLLAPSED
+                                   <<< Loop-information  End >>>
+             434     3   p   8v            DO i=1,nij
+             435     3   p   8v              v3dm(i,k,n) = v3d(i,k,1,n)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 1)
+                                   <<< Loop-information  End >>>
+             436     4       8               DO m=2,member
+             437     4   p   8v                v3dm(i,k,n) = v3dm(i,k,n) + v3d(i,k,m,n)
+             438     4   p   8v              END DO
+             439     3   p   8v              v3dm(i,k,n) = v3dm(i,k,n) / REAL(member,r_size)
+             440     3   p   8v            END DO
+             441     2   p               END DO
+             442     1               !$OMP END PARALLEL DO
+             443     1   p             END DO
+             444                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SPLIT
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, v2dm
+                                   <<< Loop-information  End >>>
+             445     1  pp   8v        DO n=1,nv2d
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, v2dm
+                                   <<< Loop-information  End >>>
+             446     2   p   8v          DO i=1,nij
+             447     2   p   8v            v2dm(i,n) = v2d(i,1,n)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 2)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2dm, v2d
+                                   <<< Loop-information  End >>>
+             448     3   p   8             DO m=2,member
+             449     3   p   8v              v2dm(i,n) = v2dm(i,n) + v2d(i,m,n)
+             450     3   p   8v            END DO
+             451     2   p   8v            v2dm(i,n) = v2dm(i,n) / REAL(member,r_size)
+             452     2   p   8v          END DO
+             453     1   p             END DO
+             454                     
+             455                       RETURN
+             456                     END SUBROUTINE ensmean_grd
+             457                     !-----------------------------------------------------------------------
+             458                     SUBROUTINE enskldv_grd(member,nij,v3d,v2d,v3dk,v2dk)
+             459                       IMPLICIT NONE
+             460                       INTEGER,INTENT(IN) :: member
+             461                       INTEGER,INTENT(IN) :: nij
+             462                       REAL(r_size),INTENT(IN) :: v3d(nij,nlev,member,nv3d)
+             463                       REAL(r_size),INTENT(IN) :: v2d(nij,member,nv2d)
+             464                       REAL(r_size),INTENT(OUT) :: v3dk(nij,nlev,nv3d)
+             465                       REAL(r_size),INTENT(OUT) :: v2dk(nij,nv2d)
+             466                       INTEGER :: i,k,m,n
+             467                     
+             468     1                 DO n=1,nv3d
+             469     1               !$OMP PARALLEL DO PRIVATE(i,k,m)
+             470     2                   DO k=1,nlev
+             471     3                     DO i=1,nij
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             472     3  pp    v              call com_kld( member, v3d(i,k,1:member,n), v3dk(i,k,n) )
+             473     3                     END DO
+             474     2                   END DO
+             475     1               !$OMP END PARALLEL DO
+             476     1                 END DO
+             477                     
+             478     1                 DO n=1,nv2d
+             479     2                   DO i=1,nij
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             480     2  pp    v            call com_kld( member, v2d(i,1:member,n), v2dk(i,n) )
+             481     2                   END DO
+             482     1                 END DO
+             483                     
+             484                       RETURN
+             485                     END SUBROUTINE enskldv_grd
+             486                     END MODULE common_speedy
+
+ Diagnostic messages: program name(common_speedy)
+   jwd8220o-i  "common_speedy.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(set_common_speedy)
+   jwd2006i-i  "common_speedy.f90", line 62: 'j' is declared but never referenced.
+   jwd8206o-i  "common_speedy.f90", line 143: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_speedy.f90", line 143: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_speedy.f90", line 148: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_speedy.f90", line 148: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_speedy.f90", line 152: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_speedy.f90", line 152: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_speedy.f90", line 164: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_speedy.f90", line 164: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(write_grd4_1atm)
+   jwd2008i-i  "common_speedy.f90", line 348: Dummy argument 'v2d' not used in this subprogram.
+  Module subprogram name(calc_pfull)
+   jwd8209o-i  "common_speedy.f90", line 388: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(ensmean_grd)
+   jwd8209o-i  "common_speedy.f90", line 435: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_speedy.f90", line 439: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_speedy.f90", line 439: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_speedy.f90", line 449: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_speedy.f90", line 451: Division is changed to multiplication by reciprocal.
+  Module subprogram name(enskldv_grd)
+   jwd2006i-i  "common_speedy.f90", line 466: 'm' is declared but never referenced.
+
+ Procedure information
+   Lines      : 486
+   Statements : 358
+   Stack(byte): 992
+   Prefetch num: 2
+
+ Total information
+   Procedures       : 1
+   Total lines      : 486
+   Total statements : 358
+   Total stack(byte): 992
+   Total prefetch num: 2
+

@@ -1,0 +1,834 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:55:18 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : interpolate.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "interpolate"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE interpolate
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Module for INTERPOLATE with SPEEDY
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   07/03/2018
+               8                     !
+               9                     !=======================================================================
+              10                       USE common
+              11                       USE common_mpi
+              12                       USE common_speedy
+              13                       USE common_mpi_speedy
+              14                       USE common_letkf
+              15                       USE letkf_obs
+              16                       IMPLICIT NONE
+              17                       PRIVATE
+              18                       PUBLIC :: bilin, inv_interp, rand_grid_gen, unif_grid_gen, inv_weight_gen, bllut_0obs, bllut_me , gauss_filter
+              19                     
+              20                     CONTAINS
+              21                     
+              22                       REAL(r_size) function inv_Ln_distance(x,y,n)
+              23                       IMPLICIT NONE
+              24                       INTEGER, INTENT(IN) :: x(2), y(2)
+              25                       INTEGER, INTENT(IN) ::  n
+              26                       REAL(r_size) :: lattemp(nlon)
+              27                       lattemp(1) = -87.159d0
+              28                       lattemp(2) = -83.479d0
+              29                       lattemp(3) = -79.777d0
+              30                       lattemp(4) = -76.070d0
+              31                       lattemp(5) = -72.362d0
+              32                       lattemp(6) = -68.652d0
+              33                       lattemp(7) = -64.942d0
+              34                       lattemp(8) = -61.232d0
+              35                       lattemp(9) = -57.521d0
+              36                       lattemp(10)= -53.810d0
+              37                       lattemp(11)= -50.099d0
+              38                       lattemp(12)= -46.389d0
+              39                       lattemp(13)= -42.678d0
+              40                       lattemp(14)= -38.967d0
+              41                       lattemp(15)= -35.256d0
+              42                       lattemp(16)= -31.545d0
+              43                       lattemp(17)= -27.833d0
+              44                       lattemp(18)= -24.122d0
+              45                       lattemp(19)= -20.411d0
+              46                       lattemp(20)= -16.700d0
+              47                       lattemp(21)= -12.989d0
+              48                       lattemp(22)=  -9.278d0
+              49                       lattemp(23)=  -5.567d0
+              50                       lattemp(24)=  -1.856d0
+              51                       lattemp(25)=   1.856d0
+              52                       lattemp(26)=   5.567d0
+              53                       lattemp(27)=   9.278d0
+              54                       lattemp(28)=  12.989d0
+              55                       lattemp(29)=  16.700d0
+              56                       lattemp(30)=  20.411d0
+              57                       lattemp(31)=  24.122d0
+              58                       lattemp(32)=  27.833d0
+              59                       lattemp(33)=  31.545d0
+              60                       lattemp(34)=  35.256d0
+              61                       lattemp(35)=  38.967d0
+              62                       lattemp(36)=  42.678d0
+              63                       lattemp(37)=  46.389d0
+              64                       lattemp(38)=  50.099d0
+              65                       lattemp(39)=  53.810d0
+              66                       lattemp(40)=  57.521d0
+              67                       lattemp(41)=  61.232d0
+              68                       lattemp(42)=  64.942d0
+              69                       lattemp(43)=  68.652d0
+              70                       lattemp(44)=  72.362d0
+              71                       lattemp(45)=  76.070d0
+              72                       lattemp(46)=  79.777d0
+              73                       lattemp(47)=  83.479d0
+              74                       lattemp(48)=  87.159d0
+              75                       inv_Ln_distance=ABS(ACOS(SIND(lattemp(x(2)))*SIND(lattemp(y(2)))+COSD(lattemp(x(2)))*COSD(lattemp(y(2)))*COSD((360.0d0/nlon)*(x(1)-y(1)))))**(-n)
+              76                       END FUNCTION inv_Ln_distance
+              77                     
+              78                       SUBROUTINE unif_grid_gen(interval,measdim,thindim,gridloc,measloc)
+              79                       IMPLICIT NONE
+              80                       INTEGER, INTENT(IN) :: interval
+              81                       INTEGER, INTENT(IN) :: thindim,measdim
+              82                       INTEGER, INTENT(OUT) :: gridloc(2,thindim)
+              83                       INTEGER, INTENT(OUT) :: measloc(2,measdim)
+              84                       INTEGER :: i,j,k,m,l,o
+              85                       k=0
+              86                       m=0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      measloc, (unknown)
+                                   <<< Loop-information  End >>>
+              87        pp  16v        measloc=0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+              88        pp  16v        gridloc=0.0d0
+              89     1                 DO i=1,nlon,interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+              90     2                   DO j=1,nlat,interval
+              91     2                     k=k+1
+              92     3                     IF(j+interval<=nlat) THEN
+              93     3                       m=m+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+              94     3  pp   8v              GRIDLOC(2,m:(m+interval-2))=(/(l, l=(j+1),(j+interval-1))/)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+              95     3  pp   8v              GRIDLOC(1,m:(m+interval-2))=i
+              96     3                       m=m+interval-2
+              97     3                     ELSEIF((nlat-j)>0) THEN
+              98     3                       m=m+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+              99     3  pp   8v              GRIDLOC(2,m:(m+nlat-j-1))=(/(l, l=(j+1),nlat)/)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+             100     3  pp   8v              GRIDLOC(1,m:(m+nlat-j-1))=i
+             101     3                       m=m+nlat-j-1
+             102     3                     END IF
+             103     2                     MEASLOC(1,k)=i
+             104     2                     MEASLOC(2,k)=j
+             105     2                   END DO
+             106     2                   IF(i+interval<=nlon) THEN
+             107     3                     DO l=1,(interval-1)
+             108     3                       m=m+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             109     3   s   fv              GRIDLOC(2,m:(m+nlat-1))=(/(o, o=1,nlat)/)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+             110     3  pp   8v              GRIDLOC(1,m:(m+nlat-1))=i+l
+             111     3                       m=m+nlat-1
+             112     3                     END DO
+             113     2                   ELSEIF((nlon-i)>0) THEN
+             114     3                     DO l=1,(nlon-i)
+             115     3                       m=m+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             116     3   s   fv              GRIDLOC(2,m:(m+nlat-1))=(/(o, o=1,nlat)/)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, (unknown)
+                                   <<< Loop-information  End >>>
+             117     3  pp   8v              GRIDLOC(1,m:(m+nlat-1))=i+l
+             118     3                       m=m+nlat-1
+             119     3                     END DO
+             120     2                   END IF
+             121     1                 END DO
+             122                       RETURN
+             123                       END SUBROUTINE unif_grid_gen
+             124                     
+             125                       SUBROUTINE rand_grid_gen(interval,measloc,unmeasloc)
+             126                       IMPLICIT NONE
+             127                       INTEGER, INTENT(IN) :: interval
+             128                       INTEGER, INTENT(OUT) :: measloc(2,(1+floor(real(nlon-1)/interval))*(1+floor(real(nlat-1)/interval)))
+             129                       INTEGER,INTENT(OUT) :: unmeasloc(2,nlon*nlat-(1+floor(real(nlon-1)/interval))*(1+floor(real(nlat-1)/interval)))
+             130                       INTEGER ::  pdfgrid(interval,interval), cdf(interval**2), longrid, latgrid, numberlist(nlon,nlat),i,k
+             131                       REAL(r_size) :: randnum
+             132                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      numberlist, (unknown)
+                                   <<< Loop-information  End >>>
+             133        pp   8v        numberlist=1
+             134                       k=0
+             135                       CALL RANDOM_SEED()
+             136     1                 DO longrid=1,nlon,interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pdfgrid, (unknown), (unknown)
+                                   <<< Loop-information  End >>>
+             137     2                   DO latgrid=1,nlat,interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pdfgrid, (unknown)
+                                   <<< Loop-information  End >>>
+             138     2  pp   8v            pdfgrid=0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      numberlist, pdfgrid, (unknown)
+                                   <<< Loop-information  End >>>
+             139     2  pp   8v            pdfgrid(1:min(interval,nlon-longrid),1:min(interval,nlat-latgrid))=numberlist(longrid:min(longrid+interval-1,nlon),latgrid:min(latgrid+interval-1,nlat))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      pdfgrid, (unknown)
+                                   <<< Loop-information  End >>>
+             140     2  pp   8v            pdfgrid=real(pdfgrid,r_size)/sum(real(pdfgrid,r_size))
+             141     2                     cdf(1)=pdfgrid(1,1)
+             142     2                     CALL RANDOM_NUMBER(randnum)
+             143     2                     i=1
+             144     3                     DO WHILE (randnum>cdf(i))
+             145     3                       i=i+1
+             146     3                       cdf(i)=cdf(i-1)+pdfgrid(1+mod(i-1,interval),(i+interval-1-mod(i+interval-1,interval))/interval)
+             147     3                     END DO
+             148     2                     k=k+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             149     2       f             measloc(:,k)=(/longrid+mod(i-1,interval),latgrid-1+(interval-1-mod(i+interval-1,interval))/interval/)
+             150     2                     numberlist(measloc(1,k),measloc(2,k))=0
+             151     2                   END DO
+             152     1                 END DO
+             153                     
+             154                       k=0
+             155     1                 DO longrid=1,nlon,interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 16
+                                   <<<     SEQUENTIAL : 16
+                                   <<<      unmeasloc: 16
+                                   <<< Loop-information  End >>>
+             156     2       8s          DO latgrid=1,nlat,interval
+             157     3       8v            IF(numberlist(longrid,latgrid)==1) THEN
+             158     3       8m              k=k+1
+             159     3       8s              unmeasloc(:,k)=(/longrid,latgrid/)
+             160     3       8v            END IF
+             161     2       8v          END DO
+             162     1                 END DO
+             163                     
+             164                       RETURN
+             165                       END SUBROUTINE rand_grid_gen
+             166                     
+             167                     
+             168                       SUBROUTINE inv_weight_gen(interval,measdim,thindim,gridloc,measloc,rho,weight_mat)
+             169                       IMPLICIT NONE
+             170                       INTEGER, INTENT(IN) :: interval, rho
+             171                       INTEGER, INTENT(IN) :: thindim,measdim
+             172                       INTEGER, INTENT(IN) :: gridloc(2,thindim)
+             173                       INTEGER, INTENT(IN) ::  measloc(2,measdim)
+             174                       REAL(r_size), INTENT(OUT) :: weight_mat(thindim,measdim)
+             175                       INTEGER :: meas, unmeas, sum_ones(measdim)
+             176                       INTEGER :: meas_coord(2)
+             177                       REAL(r_size) ::  scale_vec(thindim)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      sum_ones, (unknown)
+                                   <<< Loop-information  End >>>
+             178        pp   8v        sum_ones=1.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      measloc, (unknown)
+                                   <<< Loop-information  End >>>
+             179     1                 do meas=1,measdim
+             180     1                   meas_coord=(/measloc(1,meas),measloc(2,meas)/)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, weight_mat, (unknown)
+                                   <<< Loop-information  End >>>
+             181     2   s   6s          do unmeas=1,thindim
+             182     2   s   6s            weight_mat(unmeas,meas)=inv_Ln_distance((/gridloc(1,unmeas),gridloc(2,unmeas)/),meas_coord,rho)
+             183     2   s   6s          end do
+             184     1                 end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      sum_ones, scale_vec, (unknown)
+                                   <<< Loop-information  End >>>
+             185        pp   8v        scale_vec=matmul(weight_mat,sum_ones)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 4
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      scale_vec, (unknown)
+                                   <<< Loop-information  End >>>
+             186     1  pp             do unmeas=1,thindim
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             187     1   p   6v          weight_mat(unmeas,:)=weight_mat(unmeas,:)/scale_vec(unmeas)
+             188     1   p             end do
+             189                       RETURN
+             190                       END SUBROUTINE inv_weight_gen
+             191                     
+             192                       SUBROUTINE bilin(vec,vec_int,interval)
+             193                       IMPLICIT NONE
+             194                       REAL(r_size), INTENT(IN) :: vec(nlon,nlat)
+             195                       REAL(r_size), INTENT(OUT) :: vec_int(nlon,nlat)
+             196                       REAL(r_size) :: rat, bottom_pole_val, scal_disttomeas, scal_disttobot, disttomeas, disttobot, last_val
+             197                       INTEGER, intent(in) :: interval
+             198                       INTEGER ::   i, j, k, l, extra, extra2, fin_meas_lat, fin_meas_lon
+             199     1                 IF(interval==1) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec, vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             200     1  pp   8v          vec_int=vec
+             201     1                   RETURN
+             202     1                 END IF
+             203                     
+             204                     !! ----> If j=lat i=lon, then we interpolate all points in the square ((lat,lon),(lat+interval,lon),(lat,lon+inteval),(lat+interval,lon+interval)) until (lat+n*interval)>nlat-interval, same for lon
+             205                     
+             206                       RAT=(real(1)/real(INTERVAL)**2)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             207        pp   8v        VEC_INT=0.0d0
+             208     1                 DO j=1,(nlat-interval),interval
+             209     2                   DO l=0,INTERVAL
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             210     3                     DO i=1,(nlon-interval),interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 422
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             211     4  pp   6v              DO k=0,INTERVAL
+             212     4   p   6v                VEC_INT(i+k,j+l)=RAT*(VEC(i,j)*(INTERVAL-k)*(INTERVAL-l)+VEC(i+interval,j)*k*(INTERVAL-l)+VEC(i,j+interval)*(INTERVAL-k)*l+VEC(i+interval,j+interval)*k*l)
+             213     4   p   6v              END DO
+             214     3                     END DO
+             215     2                   END DO
+             216     1                 END DO
+             217                     
+             218                     !! ----> For the remaining points to the right, we introduce the first point again after the nlon-th point and interpolate until (lat+n*interval)>nlat-interval
+             219     1                 IF(MOD(nlon,interval)/=1) THEN
+             220     1                   i=i
+             221     1                   extra=nlon-i
+             222     1                   RAT=(real(1)/real(INTERVAL*(EXTRA+1)))
+             223     2                   DO j=1,(nlat-interval),interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             224     3  pp                 DO l=0,interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 422
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             225     4  pp   6v              DO k=0,extra
+             226     4   p   6v                VEC_INT(i+k,j+l)=RAT*(VEC(i,j)*(extra+1-k)*(INTERVAL-l)+VEC(1,j)*k*(INTERVAL-l)+VEC(i,j+interval)*(extra+1-k)*l+VEC(1,j+interval)*k*l)
+             227     4   p   6v              END DO
+             228     3   p                 END DO
+             229     2                   END DO
+             230     1                 END IF
+             231                     
+             232                     !!----> For the remaining points to the below, we introduce we average the two points above until the (lon+n*interval)>nlon-interval
+             233                     
+             234     1                 IF(MOD(nlat,interval)/=1) THEN
+             235     1                   fin_meas_lat=j
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             236     1   s   8v          bottom_pole_val=sum(VEC_INT(:,fin_meas_lat))/nlon
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             237     2  pp               DO l=1,nlat-fin_meas_lat
+             238     2   p                 disttobot=real(abs(lat(fin_meas_lat+l)),r_size)
+             239     2   p                 disttomeas=real(abs(lat(fin_meas_lat)-lat(fin_meas_lat+l)),r_size)
+             240     2   p                 scal_disttobot=disttobot/(disttobot+disttomeas)
+             241     2   p                 scal_disttomeas=disttomeas/(disttobot+disttomeas)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             242     3   p                 DO i=1,(nlon-interval),interval
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             243     4   p   8v              DO k=0,interval
+             244     4   p   8v                last_val=VEC_INT(i+k,fin_meas_lat)
+             245     4   p   8v                VEC_INT(i+k,fin_meas_lat+l)=bottom_pole_val*scal_disttobot+last_val*scal_disttomeas
+             246     4   p   8v              END DO
+             247     3   p                 END DO
+             248     2   p               END DO
+             249     1               
+             250     1               !!----> For the remaining points in the bottom right corner, we introduce the first point again and  we average the two points above
+             251     1               
+             252     2                   IF(MOD(nlon,interval)/=1) THEN
+             253     2                     fin_meas_lon=i
+             254     2                     fin_meas_lat=j
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat, vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             255     3  pp                 DO l=1,nlat-fin_meas_lat
+             256     3   p                   disttobot=real(abs(lat(fin_meas_lat+l)),r_size)
+             257     3   p                   disttomeas=real(abs(lat(fin_meas_lat)-lat(fin_meas_lat+l)),r_size)
+             258     3   p                   scal_disttobot=disttobot/(disttobot+disttomeas)
+             259     3   p                   scal_disttomeas=disttomeas/(disttobot+disttomeas)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_int, (unknown)
+                                   <<< Loop-information  End >>>
+             260     4   p   8v               DO k=1,nlon-fin_meas_lon
+             261     4   p   8v                 last_val=VEC_INT(fin_meas_lon+k,fin_meas_lat)
+             262     4   p   8v                 VEC_INT(fin_meas_lon+k,fin_meas_lat+l)=bottom_pole_val*scal_disttobot+last_val*scal_disttomeas
+             263     4   p   8v              END DO
+             264     3   p                 END DO
+             265     2                   END IF
+             266     1                 END IF
+             267                       RETURN
+             268                       END SUBROUTINE bilin
+             269                     
+             270                     
+             271                       SUBROUTINE inv_interp(vec,gridloc,measloc,weight_mat,interval,measdim,thindim,vec_interp)
+             272                       IMPLICIT NONE
+             273                       REAL(r_size), INTENT(IN) :: vec(nlon,nlat)
+             274                       REAL(r_size), INTENT(OUT) :: vec_interp(nlon,nlat)
+             275                       INTEGER, INTENT(IN) :: thindim,measdim
+             276                       REAL(r_size), INTENT(IN) :: weight_mat(thindim,measdim)
+             277                       INTEGER, INTENT(IN) :: interval
+             278                       INTEGER, INTENT(IN) :: gridloc(2,thindim)
+             279                       INTEGER, INTENT(IN) :: measloc(2,measdim)
+             280                       REAL(r_size) :: meas_vec_val(measdim)
+             281                       REAL(r_size) :: vec_interp_work(thindim)
+             282                       INTEGER :: meas, unmeas
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      measloc, meas_vec_val, (unknown)
+                                   <<< Loop-information  End >>>
+             283     1   s   6v        do meas=1,measdim
+             284     1   p   6v          meas_vec_val(meas)=vec(measloc(1,meas),measloc(2,meas))
+             285     1   s   6v          vec_interp(measloc(1,meas),measloc(2,meas))=vec(measloc(1,meas),measloc(2,meas))
+             286     1   p   6v        end do
+             287                       vec_interp_work=matmul(weight_mat,meas_vec_val)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      gridloc, vec_interp_work, (unknown)
+                                   <<< Loop-information  End >>>
+             288     1   s   8v        do unmeas=1,thindim
+             289     1   m   8v          vec_interp(gridloc(1,unmeas),gridloc(2,unmeas))=vec_interp_work(unmeas)
+             290     1   p   8v        end do
+             291                       RETURN
+             292                       END SUBROUTINE inv_interp
+             293                     
+             294                     !===================================================================================================================
+             295                       SUBROUTINE bllut_0obs(nobsr,vec,msk,wix,wiy,fac)
+             296                       IMPLICIT NONE
+             297                       REAL(r_size), INTENT(IN)    :: nobsr(nlon,nlat), msk(nlon,nlat), wix(nlon,nlat,4), wiy(nlon,nlat,4), fac(nlon,nlat,4)
+             298                       REAL(r_size), INTENT(INOUT) :: vec(nlon,nlat)
+             299                     
+             300                       INTEGER       ::   i, j, i1, i2, i3, i4, j1, j2, j3, j4
+             301                       REAL(r_size)  :: p1, p2, p3, p4, vec_tmp(nlon,nlat)
+             302                     
+             303                       !MEMO!
+             304                       ! 20190119 include treatment when no obs
+             305                       !          include treatment when wix=-999 & wiy=-999
+             306                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec, vec_tmp, (unknown)
+                                   <<< Loop-information  End >>>
+             307        pp   8v        vec_tmp(:,:) = vec(:,:)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 66
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      msk, (unknown)
+                                   <<<    PREFETCH(SOFT) : 28
+                                   <<<     SEQUENTIAL : 28
+                                   <<<      nobsr: 2, wix: 8, wiy: 8, fac: 8
+                                   <<<      vec_tmp: 2
+                                   <<< Loop-information  End >>>
+             308     2  pp    s        DO j=1,nlat  ; DO i=1,nlon
+             309     3   p    m          IF( msk(i,j)>0.5 .and. nobsr(i,j)<0.5 )THEN
+             310     4   p    s            i1=int(wix(i,j,1)+0.1) ; j1=int(wiy(i,j,1)+0.1) ; p1=0.d0 ; if(i1>=1 .and. j1>=1) then ; p1=fac(i,j,1) ; else ;i1=1;j1=1; endif
+             311     4   p    s            i2=int(wix(i,j,2)+0.1) ; j2=int(wiy(i,j,2)+0.1) ; p2=0.d0 ; if(i2>=1 .and. j2>=1) then ; p2=fac(i,j,2) ; else ;i2=1;j2=1; endif
+             312     4   p    s            i3=int(wix(i,j,3)+0.1) ; j3=int(wiy(i,j,3)+0.1) ; p3=0.d0 ; if(i3>=1 .and. j3>=1) then ; p3=fac(i,j,3) ; else ;i3=1;j3=1; endif
+             313     4   p    s            i4=int(wix(i,j,4)+0.1) ; j4=int(wiy(i,j,4)+0.1) ; p4=0.d0 ; if(i4>=1 .and. j4>=1) then ; p4=fac(i,j,4) ; else ;i4=1;j4=1; endif
+             314     3                     !print '(a,2i3,a,8i3,5f9.3,a,5i3)', "inp", i, j, " || ",i1, i2, i3, i4, j1, j2, j3, j4, p1, p2, p3, p4, p1+p2+p3+p4, &
+             315     3                     !                                                " || ",int(nobsr(i,j)),int(nobsr(i1,j1)),int(nobsr(i2,j2)),int(nobsr(i3,j3)),int(nobsr(i4,j4))
+             316     3               
+             317     3   p    s            if( nobsr(i1,j1)<0.5 ) p1 = 0.0d0
+             318     3   p    s            if( nobsr(i2,j2)<0.5 ) p2 = 0.0d0
+             319     3   p    s            if( nobsr(i3,j3)<0.5 ) p3 = 0.0d0
+             320     3   p    s            if( nobsr(i4,j4)<0.5 ) p4 = 0.0d0
+             321     3   p    s            if( (p1+p2+p3+p4)>0.1d0 ) &
+             322     3                     vec_tmp(i,j) = (p1*vec(i1,j1)+p2*vec(i2,j2)+p3*vec(i3,j3)+p4*vec(i4,j4) ) / (p1+p2+p3+p4)
+             323     3   p    v          END IF
+             324     2   p    m        END DO       ; END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      vec_tmp, vec, (unknown)
+                                   <<< Loop-information  End >>>
+             325        pp   8v        vec(:,:) = vec_tmp(:,:)
+             326                     
+             327                       END SUBROUTINE bllut_0obs
+             328                     !===================================================================================================================
+             329                       SUBROUTINE bllut_me(vec,msk_me,wix_me,wiy_me,fac_me,out_me)
+             330                       IMPLICIT NONE
+             331                       REAL(r_size), INTENT(IN)    :: msk_me(nij1), wix_me(nij1,4), wiy_me(nij1,4), fac_me(nij1,4), vec(nlon,nlat)
+             332                       REAL(r_size), INTENT(INOUT) :: out_me(nij1)
+             333                       INTEGER ::   ij, i1, i2, i3, i4, j1, j2, j3, j4
+             334                       REAL(r_size)  :: p1, p2, p3, p4, tmp_me(nij1)
+             335                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      out_me, tmp_me, (unknown)
+                                   <<< Loop-information  End >>>
+             336        pp   8v        tmp_me(:) = out_me(:)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 69
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      msk_me, out_me, (unknown)
+                                   <<<    PREFETCH(SOFT) : 26
+                                   <<<     SEQUENTIAL : 26
+                                   <<<      tmp_me: 2, wix_me: 8, wiy_me: 8
+                                   <<<      fac_me: 8
+                                   <<< Loop-information  End >>>
+             337     1  pp    s        DO ij=1,nij1
+             338     2   p    m          if( msk_me(ij)>0.5 )then
+             339     2   p    s            out_me(ij) = tmp_me(ij)
+             340     2   p    s          else
+             341     3   p    m            i1=int(wix_me(ij,1)+0.1) ; j1=int(wiy_me(ij,1)+0.1) ; p1=0.d0 ; if(i1>=1 .and. j1>=1) then ; p1=fac_me(ij,1) ; else ;i1=1;j1=1; endif
+             342     3   p    m            i2=int(wix_me(ij,2)+0.1) ; j2=int(wiy_me(ij,2)+0.1) ; p2=0.d0 ; if(i2>=1 .and. j2>=1) then ; p2=fac_me(ij,2) ; else ;i2=1;j2=1; endif
+             343     3   p    m            i3=int(wix_me(ij,3)+0.1) ; j3=int(wiy_me(ij,3)+0.1) ; p3=0.d0 ; if(i3>=1 .and. j3>=1) then ; p3=fac_me(ij,3) ; else ;i3=1;j3=1; endif
+             344     3   p    m            i4=int(wix_me(ij,4)+0.1) ; j4=int(wiy_me(ij,4)+0.1) ; p4=0.d0 ; if(i4>=1 .and. j4>=1) then ; p4=fac_me(ij,4) ; else ;i4=1;j4=1; endif
+             345     2   p    s            out_me(ij) = (p1*vec(i1,j1)+p2*vec(i2,j2)+p3*vec(i3,j3)+p4*vec(i4,j4) ) / (p1+p2+p3+p4)
+             346     2                     !!print '(i,5f20.5)', ij, p1, p2, p3, p4, out_me(ij)
+             347     2   p    v          end if
+             348     1   p    v        END DO
+             349                       END SUBROUTINE bllut_me
+             350                     
+             351                     !===================================================================================================================
+             352                       SUBROUTINE gauss_filter( wgh_nij2map, varinp, varout )
+             353                       IMPLICIT NONE
+             354                       REAL(r_size), INTENT(IN)  :: wgh_nij2map(nij1,nlon,nlat)
+             355                       REAL(r_size), INTENT(IN)  :: varinp(nlon,nlat)
+             356                       REAL(r_size), INTENT(OUT) :: varout(nij1)
+             357                     
+             358                       INTEGER       :: i, j, ij
+             359                       REAL(r_size)  :: sfnc, swgh
+             360                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      varout, (unknown)
+                                   <<< Loop-information  End >>>
+             361        pp   8v        varout(:) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             362     1  pp             DO ij=1,nij1
+             363     1   p               sfnc=0.0d0 ; swgh=0.0d0
+             364     2   p               DO j=1,nlat
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             365     3   p   8v            IF( maxval(wgh_nij2map(ij,:,j))>0.0d0 )THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 889
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 16
+                                   <<<     SEQUENTIAL : 16
+                                   <<<      varinp: 16
+                                   <<< Loop-information  End >>>
+             366     4   p   8s              DO i=1,nlon
+             367     5   p   8m                IF( wgh_nij2map(ij,i,j)>0.0d0 )THEN
+             368     5   p   8s                  sfnc = sfnc + wgh_nij2map(ij,i,j)*varinp(i,j)
+             369     5   p   8s                  swgh = swgh + wgh_nij2map(ij,i,j)
+             370     5   p   8v                END IF
+             371     4   p   8v              END DO
+             372     3   p                 END IF
+             373     2   p               END DO
+             374     1   p               varout(ij) = sfnc / swgh
+             375     1   p             END DO
+             376                     
+             377                       END SUBROUTINE gauss_filter
+             378                     END MODULE interpolate
+
+ Diagnostic messages: program name(interpolate)
+   jwd8220o-i  "interpolate.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(rand_grid_gen)
+   jwd8206o-i  "interpolate.f90", line 140: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "interpolate.f90", line 140: Method of calculating sum or product is changed.
+  Module subprogram name(inv_weight_gen)
+   jwd2008i-i  "interpolate.f90", line 168: Dummy argument 'interval' not used in this subprogram.
+   jwd8206o-i  "interpolate.f90", line 187: Division is changed to multiplication by reciprocal.
+  Module subprogram name(bilin)
+   jwd2006i-i  "interpolate.f90", line 198: 'extra2' is declared but never referenced.
+   jwd8201o-i  "interpolate.f90", line 209: Invariant expression within loop is moved outside loop.
+   jwd8220o-i  "interpolate.f90", line 210: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "interpolate.f90", line 211: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "interpolate.f90", line 211: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8201o-i  "interpolate.f90", line 211: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "interpolate.f90", line 212: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "interpolate.f90", line 213: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "interpolate.f90", line 213: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8201o-i  "interpolate.f90", line 225: Invariant expression within loop is moved outside loop.
+   jwd8220o-i  "interpolate.f90", line 225: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "interpolate.f90", line 225: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "interpolate.f90", line 226: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "interpolate.f90", line 227: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "interpolate.f90", line 227: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "interpolate.f90", line 236: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "interpolate.f90", line 236: Method of calculating sum or product is changed.
+   jwd8206o-i  "interpolate.f90", line 240: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "interpolate.f90", line 241: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "interpolate.f90", line 258: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "interpolate.f90", line 259: Division is changed to multiplication by reciprocal.
+  Module subprogram name(inv_interp)
+   jwd2008i-i  "interpolate.f90", line 271: Dummy argument 'interval' not used in this subprogram.
+   jwd8220o-i  "interpolate.f90", line 287: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(bllut_0obs)
+   jwd8209o-i  "interpolate.f90", line 321: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(bllut_me)
+   jwd8209o-i  "interpolate.f90", line 345: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(gauss_filter)
+   jwd8209o-i  "interpolate.f90", line 367: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+
+ Procedure information
+   Lines      : 378
+   Statements : 393
+   Stack(byte): 9936
+   Prefetch num: 86
+
+ Total information
+   Procedures       : 1
+   Total lines      : 378
+   Total statements : 393
+   Total stack(byte): 9936
+   Total prefetch num: 86
+

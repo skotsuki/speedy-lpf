@@ -1,0 +1,308 @@
+
+ Fujitsu Fortran Version 2.0.0  Fri Apr 17 16:19:11 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/LTERPLUT_letkf
+   Source file       : obsope_MPI.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Main program "obsope"
+  (inc)(line-no.)(nest)(optimize)
+               1                     PROGRAM obsope
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Main program of observation operator
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   04/03/2013 Takemasa Miyoshi  created
+               8                     !
+               9                     !=======================================================================
+              10                       USE common
+              11                       USE common_mpi
+              12                       USE common_letkf
+              13                       USE common_speedy
+              14                       USE common_obs_speedy
+              15                     
+              16                       IMPLICIT NONE
+              17                     ! CHARACTER(9) :: obsinfile='obsin.dat'                  !IN
+              18                       CHARACTER(18) :: obsinfile='obs/yyyymmddhh.dat'        !IN
+              19                       CHARACTER(26) :: guesfile='gues/000000/yyyymmddhh.grd' !IN
+              20                       CHARACTER(15) :: obsoutfile='obs01000000.dat'          !OUT
+              21                       CHARACTER(15) :: cnffile='letkf.cnf000000'             !OUT
+              22                       REAL(r_size),ALLOCATABLE :: elem(:)
+              23                       REAL(r_size),ALLOCATABLE :: rlon(:)
+              24                       REAL(r_size),ALLOCATABLE :: rlat(:)
+              25                       REAL(r_size),ALLOCATABLE :: rlev(:)
+              26                       REAL(r_size),ALLOCATABLE :: odat(:)
+              27                       REAL(r_size),ALLOCATABLE :: oerr(:)
+              28                       REAL(r_size),ALLOCATABLE :: ohx(:)
+              29                       INTEGER,ALLOCATABLE :: oqc(:)
+              30                       REAL(r_size),ALLOCATABLE :: v3d(:,:,:,:)
+              31                       REAL(r_size),ALLOCATABLE :: v2d(:,:,:)
+              32                       REAL(r_size),ALLOCATABLE :: p_full(:,:,:)
+              33                       REAL(r_size),PARAMETER :: threshold_dz=1000.0d0
+              34                       REAL(r_size) :: dz,tg,qg
+              35                       INTEGER :: nobs
+              36                       REAL(r_size) :: ri,rj,rk
+              37                       INTEGER :: n
+              38                     ! INTEGER :: nbv                                          ! KK
+              39                       character(4) :: yyyy                                    ! KK
+              40                       character(2) :: mm, dd, hh                              ! KK
+              41                       INTEGER :: i, ista, iend                                ! KK
+              42                       INTEGER :: ierr
+              43                     
+              44                       CALL initialize_mpi
+              45                       CALL set_common_speedy
+              46                       if(myrank == 0) print '(A6, I6, A9, I10)', 'nbv = ', nbv, ', YMDH = ', ymdh
+              47                     
+              48                       namelist / letkf_param / sigma_obs, nbv, pymdh, ymdh,                    &
+              49                         logic_wout, logic_wsth, logic_wint, dastype,                           &
+              50                         resample_m, type_pfmtx, type_relax, alph_relax, fgt_factor, gamma_gmpf
+              51                       open(1,file='letkf.cnf')
+              52                         read(1,nml=letkf_param)
+              53                       close(1)
+              54                     
+              55                     ! if(myrank == 0) then
+              56                     !   namelist / MEMBER_INFO / &
+              57                     !     nbv,  &
+              58                     !     yyyy, &
+              59                     !     mm,   &
+              60                     !     dd,   &
+              61                     !     hh
+              62                     !   open(10, file='./MEMINFO', form='formatted', status='old')
+              63                     !   read(10, nml=MEMBER_INFO)
+              64                     !   close(10)
+              65                     ! end if
+              66                     ! CALL MPI_BCAST(nbv, 1, MPI_INTEGER,   0, MPI_COMM_WORLD, ierr)
+              67                     ! CALL MPI_BCAST(yyyy, 4, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+              68                     ! CALL MPI_BCAST(mm,   2, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+              69                     ! CALL MPI_BCAST(dd,   2, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+              70                     ! CALL MPI_BCAST(hh,   2, MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
+              71                     
+              72                       write(obsinfile(5:14), '(I10.10)') ymdh
+              73                       IF( myrank == 0) CALL get_nobs(obsinfile,6,nobs)
+              74                       CALL MPI_BCAST(nobs, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+              75                     
+              76                       ALLOCATE( elem(nobs) )
+              77                       ALLOCATE( rlon(nobs) )
+              78                       ALLOCATE( rlat(nobs) )
+              79                       ALLOCATE( rlev(nobs) )
+              80                       ALLOCATE( odat(nobs) )
+              81                       ALLOCATE( oerr(nobs) )
+              82                       ALLOCATE( ohx(nobs) )
+              83                       ALLOCATE( oqc(nobs) )
+              84                     
+              85                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+              86                     
+              87                       CALL read_obs(obsinfile,nobs,elem,rlon,rlat,rlev,odat,oerr)
+              88                     ! IF( myrank == 0 ) CALL read_obs(obsinfile,nobs,elem,rlon,rlat,rlev,odat,oerr)
+              89                     ! CALL MPI_BCAST(elem, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              90                     ! CALL MPI_BCAST(rlon, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              91                     ! CALL MPI_BCAST(rlat, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              92                     ! CALL MPI_BCAST(rlev, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              93                     ! CALL MPI_BCAST(odat, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              94                     ! CALL MPI_BCAST(oerr, nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              95                     ! CALL MPI_BCAST(ohx , nobs, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+              96                     ! CALL MPI_BCAST(oqc , nobs, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+              97                     ! print *, myrank, elem(obs-1), elem(10)
+              98                     ! print *, myrank, rlon(nobs-1), rlon(10)
+              99                     ! print *, myrank, rlat(nobs-1), rlat(10)
+             100                     ! print *, myrank, rlev(nobs-1), rlev(10)
+             101                     ! print *, myrank, odat(nobs-1), odat(10)
+             102                     ! print *, myrank, oerr(nobs-1), oerr(10)
+             103                     ! print *, myrank, ohx(nobs-1), ohx(10)
+             104                     ! print *, myrank, oqc(nobs-1), oqc(10)
+             105                       ALLOCATE( v3d(nlon,nlat,nlev,nv3d) )
+             106                       ALLOCATE( v2d(nlon,nlat,nv2d) )
+             107                       ALLOCATE( p_full(nlon,nlat,nlev) )
+             108                     
+             109                       ista = myrank+1                                                           ! KK
+             110                       iend = nbv                                                                ! KK
+             111     1                 do i = ista, iend, nprocs                                                 ! KK
+             112     1               
+             113     1               !   write(guesfile(6:11), '(I6.6)') myrank+nbv                              ! KK
+             114     1                   write(guesfile(6:11), '(I6.6)') i                                       ! KK
+             115     1                   write(guesfile(13:22), '(I10.10)') ymdh                                 ! KK
+             116     1                   CALL read_grd(guesfile,v3d,v2d)
+             117     1               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      p_full
+                                   <<< Loop-information  End >>>
+             118     1  pp   8v          p_full(:,:,:) = 0.d0                                                    ! KK
+             119     1                   CALL calc_pfull(nlon,nlat,v2d(:,:,iv2d_ps),p_full)
+             120     1               
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ohx
+                                   <<< Loop-information  End >>>
+             121     1  pp   8v          ohx=0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      oqc
+                                   <<< Loop-information  End >>>
+             122     1  pp   8v          oqc=0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 16
+                                   <<<     SEQUENTIAL : 16
+                                   <<<      elem: 8, odat: 4, oqc: 4
+                                   <<< Loop-information  End >>>
+             123     2   s   2s          DO n=1,nobs
+             124     2   m   2s            CALL phys2ijk(p_full,elem(n),rlon(n),rlat(n),rlev(n),ri,rj,rk)
+             125     3   m   2s            IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri)) THEN
+             126     3                !      WRITE(6,'(A)') '* X-coordinate out of range'
+             127     3                !      WRITE(6,'(A,F6.2,A,F6.2)') '*   ri=',ri,', rlon=',rlon(n)
+             128     3   p   2s              CYCLE
+             129     3   s   2s            END IF
+             130     3   m   2s            IF(CEILING(rj) < 2 .OR. nlat < CEILING(rj)) THEN
+             131     3                !      WRITE(6,'(A)') '* Y-coordinate out of range'
+             132     3                !      WRITE(6,'(A,F6.2,A,F6.2)') '*   rj=',rj,', rlat=',rlat(n)
+             133     3   p   2               CYCLE
+             134     3   s   2s            END IF
+             135     3   m   2s            IF(CEILING(rk) > nlev) THEN
+             136     3   s   2s              CALL itpl_2d(phi0,ri,rj,dz)
+             137     3                !      WRITE(6,'(A)') '* Z-coordinate out of range'
+             138     3                !      WRITE(6,'(A,F6.2,A,F10.2,A,F6.2,A,F6.2,A,F10.2)') &
+             139     3                !       & '*   rk=',rk,', rlev=',rlev(n),&
+             140     3                !       & ', (lon,lat)=(',rlon(n),',',rlat(n),'), phi0=',dz
+             141     3   p   2v              CYCLE
+             142     3   s   2s            END IF
+             143     3   s   2s            IF(CEILING(rk) < 2 .AND. NINT(elem(n)) /= id_ps_obs) THEN
+             144     4   m   2s              IF(NINT(elem(n)) == id_u_obs .OR. NINT(elem(n)) == id_v_obs) THEN
+             145     4   m   2m                rk = 1.00001d0
+             146     4   s   2s              ELSE
+             147     4   s   2s                CALL itpl_2d(phi0,ri,rj,dz)
+             148     4                !        WRITE(6,'(A)') '* Z-coordinate out of range'
+             149     4                !        WRITE(6,'(A,F6.2,A,F10.2,A,F6.2,A,F6.2,A,F10.2)') &
+             150     4                !         & '*   rk=',rk,', rlev=',rlev(n),&
+             151     4                !         & ', (lon,lat)=(',rlon(n),',',rlat(n),'), phi0=',dz
+             152     4   p   2s                CYCLE
+             153     4   p   2v              END IF
+             154     3   s   2s            END IF
+             155     3   m   2s            IF(NINT(elem(n)) == id_ps_obs .AND. odat(n) < -100.0d0) THEN
+             156     3   p   2               CYCLE
+             157     3   s   2s            END IF
+             158     2               !     IF(NINT(tmpelm(nn+n)) == id_ps_obs) THEN
+             159     2               !       CALL itpl_2d(phi0,ri,rj,dz)
+             160     2               !       dz = dz - tmplev(nn+n)
+             161     2               !       IF(ABS(dz) < threshold_dz) THEN ! pressure adjustment threshold
+             162     2               !         CALL itpl_2d(t(:,:,1),ri,rj,tg)
+             163     2               !         CALL itpl_2d(q(:,:,1),ri,rj,qg)
+             164     2               !         CALL prsadj(tmpdat(nn+n),dz,tg,qg)
+             165     2               !       ELSE
+             166     2               !         PRINT '(A)','PS obs vertical adjustment beyond threshold'
+             167     2               !         PRINT '(A,F10.2,A,F6.2,A,F6.2,A)',&
+             168     2               !           & '  dz=',dz,', (lon,lat)=(',tmplon(nn+n),',',tmplat(nn+n),')'
+             169     2               !         CYCLE
+             170     2               !       END IF
+             171     2               !     END IF
+             172     2                     !
+             173     2                     ! observational operator
+             174     2                     !
+             175     2   s   2s            CALL Trans_XtoY(elem(n),ri,rj,rk,v3d,v2d,p_full,ohx(n))
+             176     2   p   2s            oqc(n) = 1
+             177     2   p   2v          END DO
+             178     1               
+             179     1               !   write(obsoutfile(6:11), '(I6.6)') myrank+nbv                            ! KK
+             180     1                   write(obsoutfile(6:11), '(I6.6)') i                                     ! KK
+             181     1                   CALL write_obs2(obsoutfile,nobs,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc)
+             182     1                 end do                                                                    ! KK
+             183                     
+             184                       DEALLOCATE( elem,rlon,rlat,rlev,odat,oerr,ohx,oqc,v3d,v2d,p_full )
+             185                     
+             186                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             187                     
+             188                     !=== make information file ===!
+             189                       ! fort.2 for SPEEDY model
+             190                     ! open(9, file='fort.2', form='formatted')
+             191                     ! write(9, *) "1111"
+             192                     ! write(9, *) yyyy
+             193                     ! write(9, *) mm
+             194                     ! write(9, *) dd
+             195                     ! write(9, *) hh
+             196                     ! close(9)
+             197                     
+             198                       ! ymhd.txt
+             199                     ! open(11, file='ymdh.txt', form='formatted')
+             200                     ! write(11, '(A10)') tymdh
+             201                     ! close(11)
+             202                     
+             203                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             204                       CALL finalize_mpi
+             205                     
+             206                       stop
+             207                     
+             208                     END PROGRAM obsope
+
+ Diagnostic messages: program name(obsope)
+   jwd2006i-i  "obsope_MPI.f90", line 34: 'qg' is declared but never referenced.
+   jwd2006i-i  "obsope_MPI.f90", line 34: 'tg' is declared but never referenced.
+   jwd2006i-i  "obsope_MPI.f90", line 39: 'yyyy' is declared but never referenced.
+   jwd2006i-i  "obsope_MPI.f90", line 40: 'hh' is declared but never referenced.
+   jwd2006i-i  "obsope_MPI.f90", line 40: 'dd' is declared but never referenced.
+   jwd2006i-i  "obsope_MPI.f90", line 40: 'mm' is declared but never referenced.
+   jwd1318i-w  "obsope_MPI.f90", line 48: Specification statements must appear before executable statements.
+
+ Procedure information
+   Lines      : 208
+   Statements : 99
+   Stack(byte): 272
+   Prefetch num: 16
+
+ Total information
+   Procedures       : 1
+   Total lines      : 208
+   Total statements : 99
+   Total stack(byte): 272
+   Total prefetch num: 16
+

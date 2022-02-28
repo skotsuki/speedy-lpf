@@ -1,0 +1,1911 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:54:31 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] General constants and procedures
+               5                     !
+               6                     ! [ATTENTION:] This module calls 'SFMT.f90'
+               7                     !
+               8                     ! [HISTORY:]
+               9                     !   07/20/2004 Takemasa MIYOSHI  created
+              10                     !   01/23/2009 Takemasa MIYOSHI  modified for SFMT
+              11                     !
+              12                     !=======================================================================
+              13                       IMPLICIT NONE
+              14                       PUBLIC
+              15                       INTEGER,SAVE :: nbv=02
+              16                     !-----------------------------------------------------------------------
+              17                     ! Variable size definitions
+              18                     !-----------------------------------------------------------------------
+              19                       INTEGER,PARAMETER :: r_size=kind(0.0d0)
+              20                       INTEGER,PARAMETER :: r_dble=kind(0.0d0)
+              21                       INTEGER,PARAMETER :: r_sngl=kind(0.0e0)
+              22                     !-----------------------------------------------------------------------
+              23                     ! Constants
+              24                     !-----------------------------------------------------------------------
+              25                       REAL(r_size),PARAMETER :: pi=3.1415926535d0
+              26                       REAL(r_size),PARAMETER :: gg=9.81d0
+              27                       REAL(r_size),PARAMETER :: rd=287.05d0       ! gas constant air (J/kg/K)      GYL
+              28                       REAL(r_size),PARAMETER :: rv=461.50d0       ! gas constant H2O (J/kg/K)      GYL
+              29                       REAL(r_size),PARAMETER :: cp=1005.7d0       ! spec heat air [p] (J/kg/K)
+              30                       REAL(r_size),PARAMETER :: hvap=2.5d6        ! heat of vaporization (J/kg)
+              31                       REAL(r_size),PARAMETER :: fvirt=rv/rd-1.0d0 ! parameter for T/Tv conversion  GYL
+              32                       REAL(r_size),PARAMETER :: re=6371.3d3
+              33                       REAL(r_size),PARAMETER :: r_omega=7.292d-5
+              34                       REAL(r_size),PARAMETER :: t0c=273.15d0
+              35                       REAL(r_size),PARAMETER :: undef=-9.99d33
+              36                     
+              37                     CONTAINS
+              38                     !-----------------------------------------------------------------------
+              39                     ! Mean
+              40                     !-----------------------------------------------------------------------
+              41                     SUBROUTINE com_mean(ndim,var,amean)
+              42                       IMPLICIT NONE
+              43                     
+              44                       INTEGER,INTENT(IN) :: ndim
+              45                       REAL(r_size),INTENT(IN) :: var(ndim)
+              46                       REAL(r_size),INTENT(OUT) :: amean
+              47                     
+              48                       INTEGER :: i
+              49                     
+              50                       amean = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+              51     1  pp   8v        DO i=1,ndim
+              52     1   p   8v          amean = amean + var(i)
+              53     1   p   8v        END DO
+              54                       amean = amean / REAL(ndim,r_size)
+              55                     
+              56                       RETURN
+              57                     END SUBROUTINE com_mean
+              58                     !-----------------------------------------------------------------------
+              59                     ! Standard deviation
+              60                     !-----------------------------------------------------------------------
+              61                     SUBROUTINE com_stdev(ndim,var,aout)
+              62                       IMPLICIT NONE
+              63                     
+              64                       INTEGER,INTENT(IN) :: ndim
+              65                       REAL(r_size),INTENT(IN) :: var(ndim)
+              66                       REAL(r_size),INTENT(OUT) :: aout
+              67                     
+              68                       REAL(r_size) :: amean
+              69                       REAL(r_size) :: dev(ndim)
+              70                     
+              71                       CALL com_mean(ndim,var,amean)
+              72                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dev, var
+                                   <<< Loop-information  End >>>
+              73        pp   8v        dev(:) = var(:) - amean
+              74                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dev
+                                   <<< Loop-information  End >>>
+              75        pp   8v        aout = SQRT( SUM(dev*dev) / REAL(ndim-1,r_size) )
+              76                     
+              77                       RETURN
+              78                     END SUBROUTINE com_stdev
+              79                     !-----------------------------------------------------------------------
+              80                     ! Covariance
+              81                     !-----------------------------------------------------------------------
+              82                     SUBROUTINE com_covar(ndim,var1,var2,cov)
+              83                       IMPLICIT NONE
+              84                     
+              85                       INTEGER,INTENT(IN) :: ndim
+              86                       REAL(r_size),INTENT(IN) :: var1(ndim)
+              87                       REAL(r_size),INTENT(IN) :: var2(ndim)
+              88                       REAL(r_size),INTENT(OUT) :: cov
+              89                     
+              90                       REAL(r_size) :: amean1,amean2
+              91                       REAL(r_size) :: dev1(ndim),dev2(ndim)
+              92                     
+              93                       CALL com_mean(ndim,var1,amean1)
+              94                       CALL com_mean(ndim,var2,amean2)
+              95                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dev2, dev1, var2, var1
+                                   <<< Loop-information  End >>>
+              96        pp   8v        dev1(:) = var1(:) - amean1
+              97         p   8v        dev2(:) = var2(:) - amean2
+              98                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dev2, dev1
+                                   <<< Loop-information  End >>>
+              99        pp   8v        cov = SUM( dev1*dev2 ) / REAL(ndim-1,r_size)
+             100                     
+             101                       RETURN
+             102                     END SUBROUTINE com_covar
+             103                     !-----------------------------------------------------------------------
+             104                     ! Correlation
+             105                     !-----------------------------------------------------------------------
+             106                     SUBROUTINE com_correl(ndim,var1,var2,cor)
+             107                       IMPLICIT NONE
+             108                     
+             109                       INTEGER,INTENT(IN) :: ndim
+             110                       REAL(r_size),INTENT(IN) :: var1(ndim)
+             111                       REAL(r_size),INTENT(IN) :: var2(ndim)
+             112                       REAL(r_size),INTENT(OUT) :: cor
+             113                     
+             114                       REAL(r_size) :: cov,stdev1,stdev2
+             115                     
+             116                       CALL com_stdev(ndim,var1,stdev1)
+             117                       CALL com_stdev(ndim,var2,stdev2)
+             118                       CALL com_covar(ndim,var1,var2,cov)
+             119                     
+             120                       cor = cov/stdev1/stdev2
+             121                     
+             122                       RETURN
+             123                     END SUBROUTINE com_correl
+             124                     !-----------------------------------------------------------------------
+             125                     ! Anomaly Correlation
+             126                     !-----------------------------------------------------------------------
+             127                     SUBROUTINE com_anomcorrel(ndim,var1,var2,varmean,cor)
+             128                       IMPLICIT NONE
+             129                     
+             130                       INTEGER,INTENT(IN) :: ndim
+             131                       REAL(r_size),INTENT(IN) :: var1(ndim)
+             132                       REAL(r_size),INTENT(IN) :: var2(ndim)
+             133                       REAL(r_size),INTENT(IN) :: varmean(ndim)
+             134                       REAL(r_size),INTENT(OUT) :: cor
+             135                     
+             136                       REAL(r_size) :: dev1(ndim),dev2(ndim)
+             137                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 728
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var2, varmean, var1
+                                   <<< Loop-information  End >>>
+             138        pp   8v        dev1 = var1 - varmean
+             139         p   8v        dev2 = var2 - varmean
+             140                     
+             141         p   8v        cor = SUM( dev1*dev2 ) / SQRT( SUM(dev1*dev1) * SUM(dev2*dev2) )
+             142                     
+             143                       RETURN
+             144                     END SUBROUTINE com_anomcorrel
+             145                     !-----------------------------------------------------------------------
+             146                     ! L2 Norm
+             147                     !-----------------------------------------------------------------------
+             148                     SUBROUTINE com_l2norm(ndim,var,anorm)
+             149                       IMPLICIT NONE
+             150                     
+             151                       INTEGER,INTENT(IN) :: ndim
+             152                       REAL(r_size),INTENT(IN) :: var(ndim)
+             153                       REAL(r_size),INTENT(OUT) :: anorm
+             154                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             155        pp   8v        anorm = SQRT( SUM(var*var) )
+             156                     
+             157                       RETURN
+             158                     END SUBROUTINE com_l2norm
+             159                     !-----------------------------------------------------------------------
+             160                     ! RMS (root mean square)
+             161                     !-----------------------------------------------------------------------
+             162                     SUBROUTINE com_rms(ndim,var,rmsv)
+             163                       IMPLICIT NONE
+             164                     
+             165                       INTEGER,INTENT(IN) :: ndim
+             166                       REAL(r_size),INTENT(IN) :: var(ndim)
+             167                       REAL(r_size),INTENT(OUT) :: rmsv
+             168                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1600
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             169        pp   8v        rmsv = SQRT( SUM(var*var) / REAL(ndim,r_size) )
+             170                     
+             171                       RETURN
+             172                     END SUBROUTINE com_rms
+             173                     !-----------------------------------------------------------------------
+             174                     ! Lanczos Filter (Low-pass) with cyclic boundary
+             175                     !-----------------------------------------------------------------------
+             176                     SUBROUTINE com_filter_lanczos(ndim,fc,var)
+             177                       IMPLICIT NONE
+             178                     
+             179                       INTEGER,INTENT(IN) :: ndim
+             180                       REAL(r_size),INTENT(IN) :: fc    ! critical frequency in [0,pi]
+             181                       REAL(r_size),INTENT(INOUT) :: var(ndim)
+             182                     
+             183                       INTEGER,PARAMETER :: lresol=10
+             184                     
+             185                       REAL(r_size) :: weight(-lresol:lresol)
+             186                       REAL(r_size) :: varwk(1-lresol:ndim+lresol)
+             187                       REAL(r_size) :: rl,rlresol
+             188                       INTEGER :: i,l
+             189                     !
+             190                     ! Weight
+             191                     !
+             192                       rlresol = REAL(lresol,r_size)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 22
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             193     1   s   fv        DO l=-lresol,-1
+             194     1   p   fv          rl = REAL(l,r_size)
+             195     1   p   fv          weight(l) = SIN(fc*rl) * SIN(pi*rl/rlresol) &
+             196     1                     & * rlresol / pi / rl / pi / rl
+             197     1   p   fv        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 22
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             198     1   s   fv        DO l=1,lresol
+             199     1   p   fv          rl = REAL(l,r_size)
+             200     1   p   fv          weight(l) = SIN(fc*rl) * SIN(pi*rl/rlresol) &
+             201     1                     & * rlresol / pi / rl / pi / rl
+             202     1   p   fv        END DO
+             203                       weight(0) = fc / pi
+             204                     !
+             205                     ! Cyclic boundary
+             206                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             207     1   s   fv        DO i=0,1-lresol,-1
+             208     1   p   fv          varwk(i) = var(ndim+i)
+             209     1   p   fv        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             210     1   s   fv        DO i=ndim+1,ndim+lresol
+             211     1   p   fv          varwk(i) = var(i-ndim)
+             212     1   p   fv        END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var, varwk
+                                   <<< Loop-information  End >>>
+             213        pp   8v        varwk(1:ndim) = var(1:ndim)
+             214                     !
+             215                     ! Filter
+             216                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             217        pp   8v        var = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 25
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var, varwk
+                                   <<< Loop-information  End >>>
+             218     1  pp             DO i=1,ndim
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             219     2   p   fv          DO l=-lresol,lresol
+             220     2   p   fv            var(i) = var(i) + weight(l) * varwk(i+l)
+             221     2   p   fv          END DO
+             222     1   p             END DO
+             223                     
+             224                       RETURN
+             225                     END SUBROUTINE com_filter_lanczos
+             226                     !-----------------------------------------------------------------------
+             227                     ! RAND (random number with uniform distribution)
+             228                     !-----------------------------------------------------------------------
+             229                     SUBROUTINE com_rand(ndim,var)
+             230                       IMPLICIT NONE
+             231                     
+             232                       INTEGER,INTENT(IN) :: ndim
+             233                       REAL(r_size),INTENT(OUT) :: var(1:ndim)
+             234                       REAL(r_dble) :: genrand_res53
+             235                       INTEGER :: idate(8)
+             236                       INTEGER :: i,iseed
+             237                       LOGICAL,SAVE :: first=.true.
+             238                     
+             239     1                 IF (first) THEN
+             240     1                   CALL DATE_AND_TIME(VALUES=idate)
+             241     1                   iseed = idate(8) + idate(7)*1000
+             242     1                   !iseed = 1 ! for debug, SK 20190425 for LPF to reproduce the same experiments
+             243     1                   CALL init_gen_rand(iseed)
+             244     1                   first=.false.
+             245     1                 END IF
+             246                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             247     1   s   8s        DO i=1,ndim
+             248     1   s   8s          var(i) = genrand_res53()
+             249     1   s   8s        END DO
+             250                     
+             251                       RETURN
+             252                     END SUBROUTINE com_rand
+             253                     !-----------------------------------------------------------------------
+             254                     SUBROUTINE com_rand_seed(ndim,iseed,var) ! from KK 20200426
+             255                       IMPLICIT NONE
+             256                     
+             257                       INTEGER,INTENT(IN) :: ndim, iseed
+             258                       REAL(r_size),INTENT(OUT) :: var(1:ndim)
+             259                       REAL(r_dble) :: genrand_res53
+             260                       INTEGER :: idate(8)
+             261                       INTEGER :: i, jseed
+             262                       LOGICAL,SAVE :: first=.true.
+             263                     
+             264     1                 IF (first) THEN
+             265     1                   !!!print *, first, iseed
+             266     2                   IF( iseed==0 ) THEN
+             267     2                     CALL DATE_AND_TIME(VALUES=idate)
+             268     2                     jseed = idate(8) + idate(7)*1000
+             269     2                   ELSE
+             270     2                     jseed = iseed
+             271     2                   ENDIF
+             272     1                   CALL init_gen_rand(jseed)
+             273     1                   first=.false.
+             274     1                 END IF
+             275                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             276     1   s   8s        DO i=1,ndim
+             277     1   s   8s          var(i) = genrand_res53()
+             278     1   s   8s        END DO
+             279                     
+             280                       RETURN
+             281                     END SUBROUTINE com_rand_seed
+             282                     !-----------------------------------------------------------------------
+             283                     ! RANDN (random number with normal distribution)
+             284                     !-----------------------------------------------------------------------
+             285                     SUBROUTINE com_randn(ndim,var)
+             286                       IMPLICIT NONE
+             287                     
+             288                       INTEGER,INTENT(IN) :: ndim
+             289                       REAL(r_size),INTENT(OUT) :: var(1:ndim)
+             290                       REAL(r_size) :: rnd(2)
+             291                       REAL(r_dble) :: genrand_res53
+             292                       INTEGER :: idate(8)
+             293                       INTEGER :: i,iseed
+             294                       LOGICAL,SAVE :: first=.true.
+             295                     
+             296     1                 IF (first) THEN
+             297     1                   CALL DATE_AND_TIME(VALUES=idate)
+             298     1                   iseed = idate(8) + idate(7)*1000
+             299     1                   CALL init_gen_rand(iseed)
+             300     1                   first=.false.
+             301     1                 END IF
+             302                     
+             303     1                 IF( MOD(ndim,2)==0 ) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             304     2   s   4s          DO i=1,ndim/2
+             305     2   s   4s            rnd(1) = genrand_res53()
+             306     2   s   4s            rnd(2) = genrand_res53()
+             307     2   m   4m            var(i*2-1) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             308     2   p   4v            var(i*2) = sqrt( -2.0d0 * log( rnd(1) ) ) * cos( 2.0d0*pi*rnd(2) )
+             309     2   p   4v          END DO
+             310     1                 ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var
+                                   <<< Loop-information  End >>>
+             311     2   s   4s          DO i=1,(ndim-1)/2
+             312     2   s   4s            rnd(1) = genrand_res53()
+             313     2   s   4s            rnd(2) = genrand_res53()
+             314     2   m   4m            var(i*2-1) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             315     2   p   4v            var(i*2) = sqrt( -2.0d0 * log( rnd(1) ) ) * cos( 2.0d0*pi*rnd(2) )
+             316     2   p   4v          END DO
+             317     1                   rnd(1) = genrand_res53()
+             318     1                   rnd(2) = genrand_res53()
+             319     1                   var(ndim) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             320     1                 END IF
+             321                     
+             322                       RETURN
+             323                     END SUBROUTINE com_randn
+             324                     !NO,SOFAR!!-----------------------------------------------------------------------
+             325                     !NO,SOFAR!SUBROUTINE com_randn_seed(ndim,iseed,var) ! from KK 20200426
+             326                     !NO,SOFAR!  IMPLICIT NONE
+             327                     !NO,SOFAR!
+             328                     !NO,SOFAR!  INTEGER,INTENT(IN) :: ndim, iseed
+             329                     !NO,SOFAR!  REAL(r_size),INTENT(OUT) :: var(1:ndim)
+             330                     !NO,SOFAR!  REAL(r_size) :: rnd(2)
+             331                     !NO,SOFAR!  REAL(r_dble) :: genrand_res53
+             332                     !NO,SOFAR!  INTEGER :: i
+             333                     !NO,SOFAR!  LOGICAL,SAVE :: first=.true.
+             334                     !NO,SOFAR!
+             335                     !NO,SOFAR!  IF (first) THEN
+             336                     !NO,SOFAR!    CALL init_gen_rand(iseed)
+             337                     !NO,SOFAR!    first=.true.
+             338                     !NO,SOFAR!  END IF
+             339                     !NO,SOFAR!
+             340                     !NO,SOFAR!  IF( MOD(ndim,2)==0 ) THEN
+             341                     !NO,SOFAR!    DO i=1,ndim/2
+             342                     !NO,SOFAR!      rnd(1) = genrand_res53()
+             343                     !NO,SOFAR!      rnd(2) = genrand_res53()
+             344                     !NO,SOFAR!      var(i*2-1) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             345                     !NO,SOFAR!      var(i*2) = sqrt( -2.0d0 * log( rnd(1) ) ) * cos( 2.0d0*pi*rnd(2) )
+             346                     !NO,SOFAR!    END DO
+             347                     !NO,SOFAR!  ELSE
+             348                     !NO,SOFAR!    DO i=1,(ndim-1)/2
+             349                     !NO,SOFAR!      rnd(1) = genrand_res53()
+             350                     !NO,SOFAR!      rnd(2) = genrand_res53()
+             351                     !NO,SOFAR!      var(i*2-1) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             352                     !NO,SOFAR!      var(i*2) = sqrt( -2.0d0 * log( rnd(1) ) ) * cos( 2.0d0*pi*rnd(2) )
+             353                     !NO,SOFAR!    END DO
+             354                     !NO,SOFAR!    rnd(1) = genrand_res53()
+             355                     !NO,SOFAR!    rnd(2) = genrand_res53()
+             356                     !NO,SOFAR!    var(ndim) = sqrt( -2.0d0 * log( rnd(1) ) ) * sin( 2.0d0*pi*rnd(2) )
+             357                     !NO,SOFAR!  END IF
+             358                     !NO,SOFAR!
+             359                     !NO,SOFAR!  RETURN
+             360                     !NO,SOFAR!END SUBROUTINE com_randn_seed
+             361                     !-----------------------------------------------------------------------
+             362                     ! TIMEINC
+             363                     !-----------------------------------------------------------------------
+             364                     SUBROUTINE com_timeinc_hr(iy,im,id,ih,incr)
+             365                       IMPLICIT NONE
+             366                     
+             367                       INTEGER,INTENT(INOUT) :: iy
+             368                       INTEGER,INTENT(INOUT) :: im
+             369                       INTEGER,INTENT(INOUT) :: id
+             370                       INTEGER,INTENT(INOUT) :: ih
+             371                       INTEGER,INTENT(IN) :: incr
+             372                     
+             373                       ih = ih + incr
+             374     1                 IF(ih>23) THEN
+             375     1                   ih = ih - 24
+             376     1                   id = id + 1
+             377     2                   IF(id==29.AND.im==2.AND.mod(iy,4)/=0) THEN
+             378     2                     id = 1
+             379     2                     im = 3
+             380     2                   ELSE IF(id==30.AND.im==2.AND.mod(iy,4)==0) THEN
+             381     2                     id = 1
+             382     2                     im = 3
+             383     2                   ELSE IF(id==31.AND.(im==4.OR.im==6.OR.im==9.OR.im==11)) THEN
+             384     2                     id = 1
+             385     2                     im = im + 1
+             386     2                   ELSE IF(id==32.AND.(im==1.OR.im==3.OR.im==5.OR.im==7.OR.im==8.OR.im==10)) THEN
+             387     2                     id = 1
+             388     2                     im = im + 1
+             389     2                   ELSE IF(id==32.AND.im==12) THEN
+             390     2                     id = 1
+             391     2                     im = 1
+             392     2                     iy = iy + 1
+             393     2                   END IF
+             394     1                 END IF
+             395                     
+             396                       RETURN
+             397                     END SUBROUTINE com_timeinc_hr
+             398                     !-----------------------------------------------------------------------
+             399                     ! TIMECONVERSION
+             400                     !-----------------------------------------------------------------------
+             401                     SUBROUTINE com_time2ymdh(itime,iy,im,id,ih)
+             402                       IMPLICIT NONE
+             403                       INTEGER(8),INTENT(IN) :: itime
+             404                       INTEGER,INTENT(OUT) :: iy
+             405                       INTEGER,INTENT(OUT) :: im
+             406                       INTEGER,INTENT(OUT) :: id
+             407                       INTEGER,INTENT(OUT) :: ih
+             408                     
+             409                       iy = INT(  itime / 1000000 )
+             410                       im = INT( (itime-iy*1000000) / 10000 )
+             411                       id = INT( (itime-iy*1000000-im*10000) / 100 )
+             412                       ih = INT(  itime-iy*1000000-im*10000-id*100 )
+             413                     
+             414                       RETURN
+             415                     END SUBROUTINE com_time2ymdh
+             416                     
+             417                     SUBROUTINE com_ymdh2time(iy,im,id,ih,itime)
+             418                       IMPLICIT NONE
+             419                       INTEGER,INTENT(IN) :: iy
+             420                       INTEGER,INTENT(IN) :: im
+             421                       INTEGER,INTENT(IN) :: id
+             422                       INTEGER,INTENT(IN) :: ih
+             423                       INTEGER(8),INTENT(OUT) :: itime
+             424                     
+             425                       itime=iy*1000000+im*10000+id*100+ih
+             426                     
+             427                       RETURN
+             428                     END SUBROUTINE com_ymdh2time
+             429                     !-----------------------------------------------------------------------
+             430                     ! DISTANCE BETWEEN TWO POINTS (LONa,LATa)-(LONb,LATb)
+             431                     !-----------------------------------------------------------------------
+             432                     SUBROUTINE com_distll(ndim,alon,alat,blon,blat,dist)
+             433                       IMPLICIT NONE
+             434                       INTEGER,INTENT(IN) :: ndim
+             435                       REAL(r_size),INTENT(IN) :: alon(ndim)
+             436                       REAL(r_size),INTENT(IN) :: alat(ndim)
+             437                       REAL(r_size),INTENT(IN) :: blon(ndim)
+             438                       REAL(r_size),INTENT(IN) :: blat(ndim)
+             439                       REAL(r_size),INTENT(OUT) :: dist(ndim)
+             440                       REAL(r_size),PARAMETER :: r180=1.0d0/180.0d0
+             441                       REAL(r_size) :: lon1,lon2,lat1,lat2
+             442                       REAL(r_size) :: cosd(ndim)
+             443                       INTEGER :: i
+             444                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 12
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      blon, alon, alat, blat, cosd, dist
+                                   <<< Loop-information  End >>>
+             445     1  pp    v        DO i=1,ndim
+             446     1   p    v          lon1 = alon(i) * pi * r180
+             447     1   p    v          lon2 = blon(i) * pi * r180
+             448     1   p    v          lat1 = alat(i) * pi * r180
+             449     1   p    v          lat2 = blat(i) * pi * r180
+             450     1               
+             451     1   p    v          cosd(i) = SIN(lat1)*SIN(lat2) + COS(lat1)*COS(lat2)*COS(lon2-lon1)
+             452     1   p    v          cosd(i) = MIN( 1.d0,cosd(i))
+             453     1   p    v          cosd(i) = MAX(-1.d0,cosd(i))
+             454     1               
+             455     1   p    v          dist(i) = ACOS( cosd(i) ) * re
+             456     1   p    v        END DO
+             457                     
+             458                       RETURN
+             459                     END SUBROUTINE com_distll
+             460                     !-----------------------------------------------------------------------
+             461                     ! DISTANCE BETWEEN TWO POINTS (LONa,LATa)-(LONb,LATb)
+             462                     !-----------------------------------------------------------------------
+             463                     SUBROUTINE com_distll_1(alon,alat,blon,blat,dist)
+             464                       IMPLICIT NONE
+             465                       REAL(r_size),INTENT(IN) :: alon
+             466                       REAL(r_size),INTENT(IN) :: alat
+             467                       REAL(r_size),INTENT(IN) :: blon
+             468                       REAL(r_size),INTENT(IN) :: blat
+             469                       REAL(r_size),INTENT(OUT) :: dist
+             470                       REAL(r_size),PARAMETER :: r180=1.0d0/180.0d0
+             471                       REAL(r_size) :: lon1,lon2,lat1,lat2
+             472                       REAL(r_size) :: cosd
+             473                     
+             474                       lon1 = alon * pi * r180
+             475                       lon2 = blon * pi * r180
+             476                       lat1 = alat * pi * r180
+             477                       lat2 = blat * pi * r180
+             478                     
+             479                       cosd = SIN(lat1)*SIN(lat2) + COS(lat1)*COS(lat2)*COS(lon2-lon1)
+             480                       cosd = MIN( 1.d0,cosd)
+             481                       cosd = MAX(-1.d0,cosd)
+             482                     
+             483                       dist = ACOS( cosd ) * re
+             484                     
+             485                       RETURN
+             486                     END SUBROUTINE com_distll_1
+             487                     
+             488                     FUNCTION com_distll_1f(alon,alat,blon,blat) RESULT(dist)
+             489                       IMPLICIT NONE
+             490                       REAL(r_size) :: alon
+             491                       REAL(r_size) :: alat
+             492                       REAL(r_size) :: blon
+             493                       REAL(r_size) :: blat
+             494                       REAL(r_size) :: dist
+             495                       REAL(r_size),PARAMETER :: r180=1.0d0/180.0d0
+             496                       REAL(r_size) :: lon1,lon2,lat1,lat2
+             497                       REAL(r_size) :: cosd
+             498                     
+             499                       lon1 = alon * pi * r180
+             500                       lon2 = blon * pi * r180
+             501                       lat1 = alat * pi * r180
+             502                       lat2 = blat * pi * r180
+             503                     
+             504                       cosd = SIN(lat1)*SIN(lat2) + COS(lat1)*COS(lat2)*COS(lon2-lon1)
+             505                       cosd = MIN( 1.d0,cosd)
+             506                       cosd = MAX(-1.d0,cosd)
+             507                     
+             508                       dist = ACOS( cosd ) * re
+             509                     
+             510                       RETURN
+             511                     END FUNCTION com_distll_1f
+             512                     !-----------------------------------------------------------------------
+             513                     ! Cubic spline interpolation
+             514                     !   [Reference:] Akima, H., 1970: J. ACM, 17, 589-602.
+             515                     !-----------------------------------------------------------------------
+             516                     SUBROUTINE com_interp_spline(ndim,x,y,n,x5,y5)
+             517                       IMPLICIT NONE
+             518                       INTEGER,INTENT(IN) :: ndim         ! number of grid points
+             519                       REAL(r_size),INTENT(IN) :: x(ndim) ! coordinate
+             520                       REAL(r_size),INTENT(IN) :: y(ndim) ! variable
+             521                       INTEGER,INTENT(IN) :: n            ! number of targets
+             522                       REAL(r_size),INTENT(IN) :: x5(n)   ! target coordinates
+             523                       REAL(r_size),INTENT(OUT) :: y5(n)  ! target values
+             524                       INTEGER :: i,j,m
+             525                       REAL(r_size) :: dydx(5),ddydx(4),t(2),dx21,dx
+             526                       REAL(r_size) :: wk
+             527                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      y5
+                                   <<<    PREFETCH(SOFT) : 4
+                                   <<<     SEQUENTIAL : 4
+                                   <<<      x5: 4
+                                   <<< Loop-information  End >>>
+             528     1                 TGT: DO j=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      x
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      x: 14
+                                   <<< Loop-information  End >>>
+             529     2       8           DO i=1,ndim
+             530     3       8             IF(x5(j) == x(i)) THEN
+             531     3       8               y5(j) = y(i)
+             532     3       8               CYCLE TGT
+             533     3       8             END IF
+             534     2       8             IF(x5(j) < x(i)) EXIT
+             535     2       8           END DO
+             536     1               !       i-3   i-2   i-1    i    i+1   i+2
+             537     1               !     ---+-----+-----+---*-+-----+-----+---
+             538     1               !dydx       1     2     3     4     5
+             539     1               !ddydx         1     2     3     4
+             540     1               !t                   1     2
+             541     2                   IF(i==2) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             542     3       f             DO m=3,5
+             543     3       f               dydx(m) = (y(i-3+m)-y(i-4+m)) / (x(i-3+m)-x(i-4+m))
+             544     3       f             END DO
+             545     2                     dydx(2) = 2.0d0*dydx(3) - dydx(4)
+             546     2                     dydx(1) = 2.0d0*dydx(2) - dydx(3)
+             547     2                   ELSE IF(i==3) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             548     3       f             DO m=2,5
+             549     3       f               dydx(m) = (y(i-3+m)-y(i-4+m)) / (x(i-3+m)-x(i-4+m))
+             550     3       f             END DO
+             551     2                     dydx(1) = 2.0d0*dydx(2) - dydx(3)
+             552     2                   ELSE IF(i==ndim) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             553     3       f             DO m=1,3
+             554     3       f               dydx(m) = (y(i-3+m)-y(i-4+m)) / (x(i-3+m)-x(i-4+m))
+             555     3       f             END DO
+             556     2                     dydx(4) = 2.0d0*dydx(3) - dydx(2)
+             557     2                     dydx(5) = 2.0d0*dydx(4) - dydx(3)
+             558     2                   ELSE IF(i==ndim-1) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             559     3       f             DO m=1,4
+             560     3       f               dydx(m) = (y(i-3+m)-y(i-4+m)) / (x(i-3+m)-x(i-4+m))
+             561     3       f             END DO
+             562     2                     dydx(5) = 2.0d0*dydx(4) - dydx(3)
+             563     2                   ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             564     3       f             DO m=1,5
+             565     3       f               dydx(m) = (y(i-3+m)-y(i-4+m)) / (x(i-3+m)-x(i-4+m))
+             566     3       f             END DO
+             567     2                   END IF
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             568     2       f           DO m=1,4
+             569     2       f             ddydx(m) = ABS(dydx(m+1) - dydx(m))
+             570     2       f           END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 373
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             571     2   s   f           DO m=1,2
+             572     2   p   f             wk = ddydx(m+2) + ddydx(m)
+             573     3   p   f             IF(wk == 0) THEN
+             574     3   p   f               t(m) = 0.0d0
+             575     3   p   f             ELSE
+             576     3   p   f               t(m) = (ddydx(m+2)*dydx(m+1)+ddydx(m)*dydx(m+2))/wk
+             577     3   p   f             END IF
+             578     2   p   f           END DO
+             579     1                   dx21 = x(i)-x(i-1)
+             580     1                   dx = x5(j) - x(i-1)
+             581     1                   y5(j) = y(i-1) &
+             582     1                       & + dx*t(1) &
+             583     1                       & + dx*dx*(3.0d0*dydx(3)-2.0d0*t(1)-t(2))/dx21 &
+             584     1                       & + dx*dx*dx*(t(1)+t(2)-2.0d0*dydx(3))/dx21/dx21
+             585     1                 END DO TGT
+             586                     
+             587                       RETURN
+             588                     END SUBROUTINE com_interp_spline
+             589                     !-----------------------------------------------------------------------
+             590                     ! (LON,LAT) --> (i,j) conversion
+             591                     !   [ORIGINAL AUTHOR:] Masaru Kunii
+             592                     !-----------------------------------------------------------------------
+             593                     SUBROUTINE com_pos2ij(msw,nx,ny,flon,flat,num_obs,olon,olat,oi,oj)
+             594                       IMPLICIT NONE
+             595                       ! --- inout variables
+             596                       INTEGER,INTENT(IN) :: msw   !MODE SWITCH: 1: fast, 2: accurate
+             597                       INTEGER,INTENT(IN) :: nx,ny !number of grid points
+             598                       REAL(r_size),INTENT(IN) :: flon(nx,ny),flat(nx,ny) !(lon,lat) at (i,j)
+             599                       INTEGER,INTENT(IN) :: num_obs !repetition number of conversion
+             600                       REAL(r_size),INTENT(IN) :: olon(num_obs),olat(num_obs) !target (lon,lat)
+             601                       REAL(r_size),INTENT(OUT) :: oi(num_obs),oj(num_obs) !target (i,j)
+             602                       ! --- local work variables
+             603                       LOGICAL,PARAMETER :: detailout = .FALSE.
+             604                       INTEGER,PARAMETER :: num_grid_ave = 4  ! fix
+             605                       INTEGER :: inum,ix,jy,ip,wk_maxp
+             606                       INTEGER :: iorder_we,iorder_sn
+             607                       INTEGER :: nxp,nyp
+             608                       REAL(r_size),PARAMETER :: miss = -32768
+             609                       REAL(r_size),PARAMETER :: max_dist = 2.0e+6
+             610                       REAL(r_size) :: rlat_max, rlat_min, rlon_max, rlon_min
+             611                       REAL(r_size) :: dist(num_grid_ave)
+             612                       REAL(r_size) :: dist_min_x(num_obs, num_grid_ave)
+             613                       REAL(r_size) :: dist_min_y(num_obs, num_grid_ave)
+             614                       REAL(r_size) :: wk_dist, sum_dist
+             615                       REAL(r_size) :: ratio(num_grid_ave)
+             616     1                 IF(detailout) THEN
+             617     1                   WRITE(6,'(A)') '====================================================='
+             618     1                   WRITE(6,'(A)') '      Detailed output of SUBROUTINE com_pos2ij       '
+             619     1                   WRITE(6,'(A)') '====================================================='
+             620     1                 END IF
+             621                       ! ================================================================
+             622                       !   Check the Order of flon, flat
+             623                       ! ================================================================
+             624                       iorder_we = 1
+             625                       iorder_sn = 1
+             626     1                 IF(flon(1,1) > flon(2,1)) THEN
+             627     1                   iorder_we = -1
+             628     1                 END IF
+             629     1                 IF(flat(1,1) > flat(1,2)) THEN
+             630     1                   iorder_sn = -1
+             631     1                 END IF
+             632     1                 IF(detailout) THEN
+             633     1                   WRITE(6,'(3X,A,I5)') 'Obs Order (WE) :',iorder_we
+             634     1                   WRITE(6,'(3X,A,I5)') 'Obs Order (SN) :',iorder_sn
+             635     1                 END IF
+             636                       ! ================================================================
+             637                       !  FAST MODE
+             638                       ! ================================================================
+             639     1                 IF(msw == 1) THEN
+             640     1                   ! ==============================================================
+             641     1                   !   Surrounding 4 Grid Points Interpolation
+             642     1                   ! ==============================================================
+             643     2                   Obs_Loop_1 : DO inum=1,num_obs
+             644     2                     IF(detailout) WRITE(6,'(A,I5,2F15.5)') '*** START OBS ',inum,olon(inum),olat(inum)
+             645     2                     ! ------------------------------------------------------------
+             646     2                     !    Search Basic Point
+             647     2                     ! ------------------------------------------------------------
+             648     2                     nxp = miss
+             649     2                     nyp = miss
+             650     3                     DO jy=1,ny-1
+             651     4                       DO ix=1,nx-1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 7
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      flon, (unknown), (unknown)
+                                   <<< Loop-information  End >>>
+             652     4  pp   8v                rlon_max = MAXVAL(flon(ix:ix+1, jy:jy+1))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 7
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      flon, (unknown), (unknown)
+                                   <<< Loop-information  End >>>
+             653     4  pp   8v                rlon_min = MINVAL(flon(ix:ix+1, jy:jy+1))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 7
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      flat, (unknown), (unknown)
+                                   <<< Loop-information  End >>>
+             654     4  pp   8v                rlat_max = MAXVAL(flat(ix:ix+1, jy:jy+1))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 7
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      flat, (unknown), (unknown)
+                                   <<< Loop-information  End >>>
+             655     4  pp   8v                rlat_min = MINVAL(flat(ix:ix+1, jy:jy+1))
+             656     5                         IF(rlon_min <= olon(inum) .AND. rlon_max >= olon(inum) .AND. &
+             657     5                          & rlat_min <= olat(inum) .AND. rlat_max >= olat(inum)) THEN
+             658     5                           nxp = ix
+             659     5                           nyp = jy
+             660     5                           EXIT
+             661     5                         END IF
+             662     4                       END DO
+             663     3                     END DO
+             664     2                     IF(detailout) WRITE(6,'(3X,A,2I7)') 'nxp, nyp =',nxp,nyp
+             665     3                     IF(nxp == miss .OR. nyp == miss) THEN
+             666     3                       WRITE(6,'(A)') '!!WARNING(com_pos2ij): obs position cannot be detected'
+             667     3                       oi(inum) = miss
+             668     3                       oj(inum) = miss
+             669     3                       CYCLE Obs_Loop_1
+             670     3                     END IF
+             671     2                     ! ------------------------------------------------------------
+             672     2                     !    Interpolation
+             673     2                     ! ------------------------------------------------------------
+             674     2                     CALL com_distll_1(flon(nxp  ,nyp  ),flat(nxp  ,nyp  ),&
+             675     2                                     & olon(inum),olat(inum),dist(1))
+             676     2                     CALL com_distll_1(flon(nxp+1,nyp  ),flat(nxp+1,nyp  ),&
+             677     2                                     & olon(inum),olat(inum),dist(2))
+             678     2                     CALL com_distll_1(flon(nxp  ,nyp+1),flat(nxp  ,nyp+1),&
+             679     2                                     & olon(inum),olat(inum),dist(3))
+             680     2                     CALL com_distll_1(flon(nxp+1,nyp+1),flat(nxp+1,nyp+1),&
+             681     2                                     & olon(inum),olat(inum),dist(4))
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             682     2       f             dist(1:4) = dist(1:4) * 1.D-3
+             683     2                     IF(detailout) WRITE(6,'(3X,A,4F15.5)') 'distance :',dist(1:4)
+             684     2                     sum_dist = dist(1) * dist(1) * dist(2) * dist(2) * dist(3) * dist(3) &
+             685     2                            & + dist(2) * dist(2) * dist(3) * dist(3) * dist(4) * dist(4) &
+             686     2                            & + dist(3) * dist(3) * dist(4) * dist(4) * dist(1) * dist(1) &
+             687     2                            & + dist(4) * dist(4) * dist(1) * dist(1) * dist(2) * dist(2)
+             688     2                     ratio(1) = (dist(2)*dist(2)*dist(3)*dist(3)*dist(4)*dist(4))/sum_dist
+             689     2                     ratio(2) = (dist(3)*dist(3)*dist(4)*dist(4)*dist(1)*dist(1))/sum_dist
+             690     2                     ratio(3) = (dist(4)*dist(4)*dist(1)*dist(1)*dist(2)*dist(2))/sum_dist
+             691     2                     ratio(4) = (dist(1)*dist(1)*dist(2)*dist(2)*dist(3)*dist(3))/sum_dist
+             692     2                     IF(detailout) WRITE(6,'(3X,A,5F15.5)') 'ratio    :',ratio(1:4),SUM(ratio(1:4))
+             693     2                     oi(inum) = ratio(1) *  nxp    + ratio(2) * (nxp+1) &
+             694     2                            & + ratio(3) *  nxp    + ratio(4) * (nxp+1)
+             695     2                     oj(inum) = ratio(1) *  nyp    + ratio(2) *  nyp    &
+             696     2                            & + ratio(3) * (nyp+1) + ratio(4) * (nyp+1)
+             697     2                     IF(detailout) WRITE(6,'(3X,A,2F15.5)') 'position :',oi(inum), oj(inum)
+             698     2               
+             699     2                   END DO Obs_Loop_1
+             700     1                 ! ================================================================
+             701     1                 !  ACCURATE MODE
+             702     1                 ! ================================================================
+             703     1                 ELSE IF(msw == 2) THEN
+             704     1                   ! ================================================================
+             705     1                   !   Nearest 4 Grid Points Interpolation
+             706     1                   ! ================================================================
+             707     2                   Obs_Loop_2 : DO inum=1,num_obs
+             708     2                     IF(detailout) WRITE(6,'(A,I5,2F15.5)') '*** START OBS ',inum,olon(inum),olat(inum)
+             709     2                     ! ------------------------------------------------------------
+             710     2                     !    Search 4-Grid Points
+             711     2                     ! ------------------------------------------------------------
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             712     2       f             dist(1:num_grid_ave) = 1.D+10
+             713     2                     wk_maxp = num_grid_ave
+             714     3                     DO jy=1,ny
+             715     4       2               DO ix=1,nx
+             716     4       2                 CALL com_distll_1(flon(ix,jy),flat(ix,jy),&
+             717     4                                         & olon(inum) ,olat(inum) ,wk_dist)
+             718     4       2                 IF(wk_dist > max_dist) CYCLE
+             719     5       2                 IF(wk_dist < dist(wk_maxp)) THEN
+             720     5       2                   dist(wk_maxp) = wk_dist
+             721     5       2                   dist_min_x(inum, wk_maxp) = ix
+             722     5       2                   dist_min_y(inum, wk_maxp) = jy
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             723     6       f                   DO ip = 1, num_grid_ave
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             724     7       f                     IF(dist(ip) == maxval(dist(1:num_grid_ave))) THEN
+             725     7       f                       wk_maxp = ip
+             726     7       f                       EXIT
+             727     7       f                     END IF
+             728     6       f                   END DO
+             729     5       2                 END IF
+             730     4       2               END DO
+             731     3                     END DO
+             732     2                     IF(detailout) WRITE(6,'(A,4(A,I4,A,I4,A))')  '  Intp Grids : ', &
+             733     2                       & '(', INT(dist_min_x(inum, 1)), ',', INT(dist_min_y(inum, 1)), ') ', &
+             734     2                       & '(', INT(dist_min_x(inum, 2)), ',', INT(dist_min_y(inum, 2)), ') ', &
+             735     2                       & '(', INT(dist_min_x(inum, 3)), ',', INT(dist_min_y(inum, 3)), ') ', &
+             736     2                       & '(', INT(dist_min_x(inum, 4)), ',', INT(dist_min_y(inum, 4)), ') '
+             737     2                     ! ------------------------------------------------------------
+             738     2                     !    Interpolation
+             739     2                     ! ------------------------------------------------------------
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             740     2       f             dist(1:num_grid_ave) =  dist(1:num_grid_ave) * 1.0D-3
+             741     2                     sum_dist = dist(1) * dist(1) * dist(2) * dist(2) * dist(3) * dist(3)  &
+             742     2                            & + dist(2) * dist(2) * dist(3) * dist(3) * dist(4) * dist(4)  &
+             743     2                            & + dist(3) * dist(3) * dist(4) * dist(4) * dist(1) * dist(1)  &
+             744     2                            & + dist(4) * dist(4) * dist(1) * dist(1) * dist(2) * dist(2)
+             745     2                     ratio(1) = (dist(2)*dist(2)*dist(3)*dist(3)*dist(4)*dist(4))/sum_dist
+             746     2                     ratio(2) = (dist(3)*dist(3)*dist(4)*dist(4)*dist(1)*dist(1))/sum_dist
+             747     2                     ratio(3) = (dist(4)*dist(4)*dist(1)*dist(1)*dist(2)*dist(2))/sum_dist
+             748     2                     ratio(4) = (dist(1)*dist(1)*dist(2)*dist(2)*dist(3)*dist(3))/sum_dist
+             749     2                     IF(detailout) WRITE(6,'(2X,A,5F15.5)') 'ratio      :',ratio(1:4),SUM(ratio(1:4))
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             750     2       f             oi(inum) = SUM(ratio(1:num_grid_ave) * dist_min_x(inum, 1:num_grid_ave))
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             751     2       f             oj(inum) = SUM(ratio(1:num_grid_ave) * dist_min_y(inum, 1:num_grid_ave))
+             752     2                     IF(detailout) WRITE(6,'(2X,A,2F15.5)') 'position   :',oi(inum),oj(inum)
+             753     2                   END DO Obs_Loop_2
+             754     1                 END IF
+             755                     
+             756                       RETURN
+             757                     END SUBROUTINE com_pos2ij
+             758                     !-----------------------------------------------------------------------
+             759                     ! UTC to TAI93
+             760                     !-----------------------------------------------------------------------
+             761                     SUBROUTINE com_utc2tai(iy,im,id,ih,imin,sec,tai93)
+             762                       IMPLICIT NONE
+             763                       INTEGER,INTENT(IN) :: iy,im,id,ih,imin
+             764                       REAL(r_size),INTENT(IN) :: sec
+             765                       REAL(r_size),INTENT(OUT) :: tai93
+             766                       REAL(r_size),PARAMETER :: mins = 60.0d0
+             767                       REAL(r_size),PARAMETER :: hour = 60.0d0*mins
+             768                       REAL(r_size),PARAMETER :: day = 24.0d0*hour
+             769                       REAL(r_size),PARAMETER :: year = 365.0d0*day
+             770                       INTEGER,PARAMETER :: mdays(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
+             771                       INTEGER :: days,i
+             772                     
+             773                       tai93 = REAL(iy-1993,r_size)*year + FLOOR(REAL(iy-1993)/4.0,r_size)*day
+             774                       days = id -1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             775     1   s   fs        DO i=1,12
+             776     1   p   fs          IF(im > i) days = days + mdays(i)
+             777     1   p   fv        END DO
+             778                       IF(MOD(iy,4) == 0 .AND. im > 2) days = days + 1 !leap year
+             779                       tai93 = tai93 + REAL(days,r_size)*day + REAL(ih,r_size)*hour &
+             780                                   & + REAL(imin,r_size)*mins + sec
+             781                       IF(iy > 1993 .OR. (iy==1993 .AND. im > 6)) tai93 = tai93 + 1.0d0 !leap second
+             782                       IF(iy > 1994 .OR. (iy==1994 .AND. im > 6)) tai93 = tai93 + 1.0d0 !leap second
+             783                       IF(iy > 1995) tai93 = tai93 + 1.0d0 !leap second
+             784                       IF(iy > 1997 .OR. (iy==1997 .AND. im > 6)) tai93 = tai93 + 1.0d0 !leap second
+             785                       IF(iy > 1998) tai93 = tai93 + 1.0d0 !leap second
+             786                       IF(iy > 2005) tai93 = tai93 + 1.0d0 !leap second
+             787                       IF(iy > 2008) tai93 = tai93 + 1.0d0 !leap second
+             788                       IF(iy > 2012 .OR. (iy==2012 .AND. im > 6)) tai93 = tai93 + 1.0d0 !leap second
+             789                     
+             790                       RETURN
+             791                     END SUBROUTINE com_utc2tai
+             792                     !-----------------------------------------------------------------------
+             793                     ! TAI93 to UTC
+             794                     !-----------------------------------------------------------------------
+             795                     SUBROUTINE com_tai2utc(tai93,iy,im,id,ih,imin,sec)
+             796                       IMPLICIT NONE
+             797                       INTEGER,PARAMETER :: n=8 ! number of leap seconds after Jan. 1, 1993
+             798                       INTEGER,PARAMETER :: leapsec(n) = (/  15638399,  47174400,  94608001,&
+             799                                                       &    141868802, 189302403, 410227204,&
+             800                                                       &    504921605, 615254406/)
+             801                       REAL(r_size),INTENT(IN) :: tai93
+             802                       INTEGER,INTENT(OUT) :: iy,im,id,ih,imin
+             803                       REAL(r_size),INTENT(OUT) :: sec
+             804                       REAL(r_size),PARAMETER :: mins = 60.0d0
+             805                       REAL(r_size),PARAMETER :: hour = 60.0d0*mins
+             806                       REAL(r_size),PARAMETER :: day = 24.0d0*hour
+             807                       REAL(r_size),PARAMETER :: year = 365.0d0*day
+             808                       INTEGER,PARAMETER :: mdays(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
+             809                       REAL(r_size) :: wk,tai
+             810                       INTEGER :: days,i,leap
+             811                     
+             812                       tai = tai93
+             813                       sec = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 640
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             814     1   s   fs        DO i=1,n
+             815     1   p   fm          IF(FLOOR(tai93) == leapsec(i)+1) sec = 60.0d0 + tai93-FLOOR(tai93,r_size)
+             816     1   p   fs          IF(FLOOR(tai93) > leapsec(i)) tai = tai -1.0d0
+             817     1   p   fm        END DO
+             818                       iy = 1993 + FLOOR(tai /year)
+             819                       wk = tai - REAL(iy-1993,r_size)*year - FLOOR(REAL(iy-1993)/4.0,r_size)*day
+             820     1                 IF(wk < 0.0d0) THEN
+             821     1                   iy = iy -1
+             822     1                   wk = tai - REAL(iy-1993,r_size)*year - FLOOR(REAL(iy-1993)/4.0,r_size)*day
+             823     1                 END IF
+             824                       days = FLOOR(wk/day)
+             825                       wk = wk - REAL(days,r_size)*day
+             826                       im = 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    UNSWITCHING
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             827     1   s   fs        DO i=1,12
+             828     1   p   fv          leap = 0
+             829     1   s   fs          IF(im == 2 .AND. MOD(iy,4)==0) leap=1
+             830     2   m   fm          IF(im == i .AND. days >= mdays(i)+leap) THEN
+             831     2   s   fs            im = im + 1
+             832     2   s   fs            days = days - mdays(i)-leap
+             833     2   p   fv          END IF
+             834     1   p   fv        END DO
+             835                       id = days +1
+             836                     
+             837                       ih = FLOOR(wk/hour)
+             838                       wk = wk - REAL(ih,r_size)*hour
+             839                       imin = FLOOR(wk/mins)
+             840                       IF(sec < 60.0d0) sec = wk - REAL(imin,r_size)*mins
+             841                     
+             842                       RETURN
+             843                     END SUBROUTINE com_tai2utc
+             844                     !-----------------------------------------------------------------------
+             845                     ! Date and time regulation
+             846                     !-----------------------------------------------------------------------
+             847                     SUBROUTINE com_datetime_reg(iy,im,id,ih,imin,isec)
+             848                       IMPLICIT NONE
+             849                       INTEGER, INTENT(INOUT) :: iy,im,id,ih,imin,isec
+             850                       INTEGER :: mdays
+             851                     
+             852     1                 DO WHILE(im <= 0)
+             853     1                   im = im + 12
+             854     1                   iy = iy - 1
+             855     1                 END DO
+             856     1                 DO WHILE(im > 12)
+             857     1                   im = im - 12
+             858     1                   iy = iy + 1
+             859     1                 END DO
+             860     1                 DO WHILE(isec < 0)
+             861     1                   isec = isec + 60
+             862     1                   imin = imin - 1
+             863     1                 END DO
+             864     1                 DO WHILE(isec >= 60)
+             865     1                   isec = isec - 60
+             866     1                   imin = imin + 1
+             867     1                 END DO
+             868     1                 DO WHILE(imin < 0)
+             869     1                   imin = imin + 60
+             870     1                   ih = ih - 1
+             871     1                 END DO
+             872     1                 DO WHILE(imin >= 60)
+             873     1                   imin = imin - 60
+             874     1                   ih = ih + 1
+             875     1                 END DO
+             876     1                 DO WHILE(ih < 0)
+             877     1                   ih = ih + 24
+             878     1                   id = id - 1
+             879     1                 END DO
+             880     1                 DO WHILE(ih >= 24)
+             881     1                   ih = ih - 24
+             882     1                   id = id + 1
+             883     1                 END DO
+             884     1                 DO WHILE(id <= 0)
+             885     1                   im = im - 1
+             886     2                   IF(im <= 0) THEN
+             887     2                     im = im + 12
+             888     2                     iy = iy - 1
+             889     2                   END IF
+             890     1                   CALL com_mdays(iy,im,mdays)
+             891     1                   id = id + mdays
+             892     1                 END DO
+             893                       CALL com_mdays(iy,im,mdays)
+             894     1                 DO WHILE(id > mdays)
+             895     1                   id = id - mdays
+             896     1                   im = im + 1
+             897     2                   IF(im > 12) THEN
+             898     2                     im = im - 12
+             899     2                     iy = iy + 1
+             900     2                   END IF
+             901     1                   CALL com_mdays(iy,im,mdays)
+             902     1                 END DO
+             903                     
+             904                       RETURN
+             905                     END SUBROUTINE com_datetime_reg
+             906                     !-----------------------------------------------------------------------
+             907                     ! Number of days of the month
+             908                     !-----------------------------------------------------------------------
+             909                     SUBROUTINE com_mdays(iy,im,mdays)
+             910                       IMPLICIT NONE
+             911                       INTEGER, INTENT(IN) :: iy,im
+             912                       INTEGER, INTENT(OUT) :: mdays
+             913                     
+             914     1                 SELECT CASE(im)
+             915     1                 CASE(1,3,5,7,8,10,12)
+             916     1                   mdays = 31
+             917     1                 CASE(4,6,9,11)
+             918     1                   mdays = 30
+             919     1                 CASE(2)
+             920     1                   mdays = 28
+             921     2                   IF(MOD(iy,100) == 0) THEN
+             922     3                     IF(MOD(iy,400) == 0) THEN
+             923     3                       mdays = 29
+             924     3                     END IF
+             925     2                   ELSE IF(MOD(iy,4) == 0) THEN
+             926     2                     mdays = 29
+             927     2                   END IF
+             928     1                 CASE DEFAULT
+             929     1                   WRITE(6,'(A)') '[Error] com_mdays: invalid month.'
+             930     1                   STOP
+             931     1                 END SELECT
+             932                     END SUBROUTINE com_mdays
+             933                     
+             934                     
+             935                     !===============================================================================
+             936                     recursive subroutine quick_sort_asnd(var,init,first,last)
+             937                     implicit none
+             938                       integer :: first, last, i, j, it
+             939                       integer :: init(*)
+             940                       real(r_size) :: var(*) , x,t
+             941                     
+             942                       x = var( (first+last) / 2 )
+             943                       i = first  ;  j = last
+             944     1                 do
+             945     2                   do while (var(i) < x)  ;  i=i+1  ;  end do
+             946     2                   do while (x < var(j))  ;  j=j-1  ;  end do
+             947     1                   if (i >= j) exit
+             948     1                     t       = var(i)  ;  var(i)  = var(j)  ;  var(j)  = t
+             949     1                     it      = init(i) ;  init(i) = init(j) ;  init(j) = it
+             950     1                     i       = i + 1   ;  j       = j - 1
+             951     1                 end do
+             952                       if (first < i - 1 ) call quick_sort_asnd(var,init, first, i - 1)
+             953                       if (j + 1 < last  ) call quick_sort_asnd(var,init, j + 1, last )
+             954                     
+             955                       return
+             956                     end subroutine quick_sort_asnd
+             957                     
+             958                     !=============================================================================== SK from KK 20200408
+             959                     !-----------------------------------------------------------------------
+             960                     ! Kullback–Leibler divergence (KLD)     ! KK 20160414
+             961                     !-----------------------------------------------------------------------
+             962                     subroutine com_kld(ndim, var1, kld)
+             963                       implicit none
+             964                       INTEGER, INTENT(IN)      :: ndim
+             965                       REAL(r_size),INTENT(IN)  :: var1(ndim)
+             966                       REAL(r_size),INTENT(OUT) :: kld
+             967                       REAL(r_size) :: hstg(ndim)
+             968                       REAL(r_size) :: work1(ndim)
+             969                       REAL(r_size) :: mean, var, std
+             970                       REAL(r_size) :: alpha, w
+             971                       REAL(r_size) :: threshold, x
+             972                       REAL(r_size) :: p, q, kld_tmp
+             973                       INTEGER :: ic, iclass, class_lmt
+             974                       INTEGER :: i
+             975                     
+             976                       kld = 0.d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      var1, work1, (unknown)
+                                   <<< Loop-information  End >>>
+             977        pp   8v        work1(:) = var1(:)
+             978                     
+             979                       call qsort(ndim, work1)
+             980                     
+             981                       !--- calc. variance ---!
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work1, (unknown)
+                                   <<< Loop-information  End >>>
+             982        pp   8v        mean = sum(work1(:))/dble(ndim)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work1, (unknown)
+                                   <<< Loop-information  End >>>
+             983        pp   8v        work1(:) = work1(:)-mean
+             984         p   8v        var = sum(work1(:)**2)/dble(ndim-1)
+             985     1                 if( var==0.0d0 )then
+             986     1                   kld= undef
+             987     1                   return
+             988     1                 endif
+             989                       std = sqrt(var)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      work1, (unknown)
+                                   <<< Loop-information  End >>>
+             990        pp   8v        work1(:) = work1(:)/std
+             991                     
+             992                     ! do i = 1, ndim
+             993                     !   print *, i, work1(i)
+             994                     ! end do
+             995                     
+             996                       !--- set histogram parameters ---!
+             997                       var = 1.d0
+             998                       std = 1.d0
+             999                       alpha = ndim**(1.d0/3.d0)
+            1000                       w = 3.5d0*std/alpha
+            1001                     
+            1002                       !--- make histogram ---!
+            1003                       iclass = 1
+            1004     1                 do while(w*iclass+0.5d0*w < 10.d0*std)  !!!!  change 10.d0 - > 20.d0
+            1005     1               !   print *, iclass, w*iclass+0.5d0*w, 10.d0*std
+            1006     1                   iclass = iclass + 1
+            1007     1                 end do
+            1008                       class_lmt = iclass
+            1009                     
+            1010                       ic = 0
+            1011                       iclass = 1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      hstg, (unknown)
+                                   <<< Loop-information  End >>>
+            1012        pp   8v        hstg(:) = 0.d0
+            1013                       i = 1
+            1014     1                 do while(i <= ndim)
+            1015     1                   threshold = -w*(class_lmt+0.5d0) + w*iclass
+            1016     2                   if(work1(i) < threshold) then
+            1017     2                     ic = ic + 1
+            1018     2               !     print '(I5,I4,I6,2F11.5,F6.0)', ic, iclass, i, work1(i), threshold
+            1019     2                   else
+            1020     2                     hstg(iclass) = dble(ic)
+            1021     2               !     print '(I5,I4,I6,2F11.5,F6.0)', ic, iclass, i, work1(i), threshold, hstg(iclass)
+            1022     2                     iclass = iclass + 1
+            1023     2                     ic = 0
+            1024     2                     i = i - 1
+            1025     2                   end if
+            1026     1                   i = i + 1
+            1027     1                 end do
+            1028                       hstg(iclass) = dble(ic)
+            1029                     ! print '(F8.0,I5)', sum(hstg(:)), iclass
+            1030                     
+            1031                       !--- normalize distribution ---!
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1334
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      hstg, (unknown)
+                                   <<< Loop-information  End >>>
+            1032        pp   8v        hstg(:) = hstg(:)/ndim
+            1033                     
+            1034                       !--- KL divergence ---!
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 12
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      hstg, (unknown)
+                                   <<< Loop-information  End >>>
+            1035     1  pp    s        do iclass = 1, class_lmt*2+1
+            1036     1   p    s          x = w*iclass-w*(class_lmt+1)
+            1037     1   p    v          p = hstg(iclass)
+            1038     1   p    v          q = dexp(-x**2/(2*var))/dsqrt(2*pi*var)*w
+            1039     2   p    v          if(p == 0.d0) then
+            1040     2   p    m            kld_tmp = -p * log(q)
+            1041     2   p               else
+            1042     2   p    s            kld_tmp = p * (log(p) - log(q))
+            1043     2   p    s          end if
+            1044     1               !   if(q == 0.d0) then
+            1045     1               !     kld_tmp = p * log(p)
+            1046     1               !   else
+            1047     1               !     kld_tmp = p * (log(p) - log(q))
+            1048     1               !   end if
+            1049     1   p    m          kld = kld + kld_tmp
+            1050     1               !   print *, iclass, p, q
+            1051     1               !   print '(I5,F7.0, F10.5)', iclass, hstg(iclass)*ndim, kld_tmp
+            1052     1   p    v        end do
+            1053                       if(kld <= 0.d0) kld = 0.d0
+            1054                     
+            1055                       return
+            1056                     end subroutine com_KLD
+            1057                     !-----------------------------------------------------------------------
+            1058                     ! KLD thresholds
+            1059                     !-----------------------------------------------------------------------
+            1060                     SUBROUTINE kld_threshold(nbv, kld_floor, kld_cap)
+            1061                       IMPLICIT NONE
+            1062                       INTEGER, INTENT(IN) :: nbv
+            1063                       REAL(r_size), INTENT(OUT) :: kld_floor, kld_cap
+            1064                       REAL(r_size) :: kld_tmp
+            1065                     
+            1066                       kld_cap = 0.60d0
+            1067                     ! kld_cap = 0.80d0
+            1068                     
+            1069                     ! select case(nbv)
+            1070                     !   case(:19)
+            1071                     !     kld_tmp = 0.25d0 - (0.25d0 - 0.17d0) / 20 * nbv
+            1072                     !   case(20:39)
+            1073                     !     kld_tmp = 0.17d0 - (0.17d0 - 0.13d0) / (40-20) * (nbv-20)
+            1074                     !   case(40:79)
+            1075                     !     kld_tmp = 0.13d0 - (0.13d0 - 0.09d0) / (80-40) * (nbv-40)
+            1076                     !   case(80:159)
+            1077                     !     kld_tmp = 0.09d0 - (0.09d0 - 0.06d0) / (160-80) * (nbv-80)
+            1078                     !   case(160:319)
+            1079                     !     kld_tmp = 0.06d0 - (0.06d0 - 0.05d0) / (320-160) * (nbv-160)
+            1080                     !   case(320:639)
+            1081                     !     kld_tmp = 0.05d0 - (0.05d0 - 0.03d0) / (640-320) * (nbv-320)
+            1082                     !   case(640:2559)
+            1083                     !     kld_tmp = 0.03d0 - (0.03d0 - 0.02d0) / (2560-640) * (nbv-640)
+            1084                     !   case(2560:)
+            1085                     !     kld_tmp = 0.02d0
+            1086                     ! end select
+            1087                     
+            1088                     ! select case(nbv)
+            1089                     !   case(:19)
+            1090                     !     kld_tmp = 0.25d0 - (0.25d0 - 0.09d0) / 20 * nbv
+            1091                     !   case(20:39)
+            1092                     !     kld_tmp = 0.09d0 - (0.09d0 - 0.07d0) / (40-20) * (nbv-20)
+            1093                     !   case(40:79)
+            1094                     !     kld_tmp = 0.07d0 - (0.07d0 - 0.06d0) / (80-40) * (nbv-40)
+            1095                     !   case(80:159)
+            1096                     !     kld_tmp = 0.06d0 - (0.06d0 - 0.04d0) / (160-80) * (nbv-80)
+            1097                     !   case(160:319)
+            1098                     !     kld_tmp = 0.04d0 - (0.04d0 - 0.03d0) / (320-160) * (nbv-160)
+            1099                     !   case(320:1279)
+            1100                     !     kld_tmp = 0.03d0 - (0.03d0 - 0.02d0) / (1280-320) * (nbv-320)
+            1101                     !   case(1280:)
+            1102                     !     kld_tmp = 0.02d0
+            1103                     ! end select
+            1104                     
+            1105                       !--- 75 percentile ---!
+            1106                     ! select case(nbv)
+            1107                     !   case(:19)
+            1108                     !     kld_tmp = 0.250d0 - (0.25d0 - 0.086d0) / 20 * nbv
+            1109                     !   case(20:39)
+            1110                     !     kld_tmp = 0.086d0 - (0.086d0 - 0.066d0) / (40-20) * (nbv-20)
+            1111                     !   case(40:79)
+            1112                     !     kld_tmp = 0.066d0 - (0.066d0 - 0.049d0) / (80-40) * (nbv-40)
+            1113                     !   case(80:159)
+            1114                     !     kld_tmp = 0.049d0 - (0.049d0 - 0.034d0) / (160-80) * (nbv-80)
+            1115                     !   case(160:319)
+            1116                     !     kld_tmp = 0.034d0 - (0.034d0 - 0.023d0) / (320-160) * (nbv-160)
+            1117                     !   case(320:639)
+            1118                     !     kld_tmp = 0.023d0 - (0.023d0 - 0.015d0) / (640-320) * (nbv-320)
+            1119                     !   case(640:1279)
+            1120                     !     kld_tmp = 0.015d0 - (0.015d0 - 0.010d0) / (1280-640) * (nbv-640)
+            1121                     !   case(1280:)
+            1122                     !     kld_tmp = 0.010d0
+            1123                     ! end select
+            1124                     
+            1125                       !--- 80 percentile ---!
+            1126                     ! select case(nbv)
+            1127                     !   case(:19)
+            1128                     !     kld_tmp = 0.250d0 - (0.25d0 - 0.098d0) / 20 * nbv
+            1129                     !   case(20:39)
+            1130                     !     kld_tmp = 0.098d0 - (0.098d0 - 0.072d0) / (40-20) * (nbv-20)
+            1131                     !   case(40:79)
+            1132                     !     kld_tmp = 0.072d0 - (0.072d0 - 0.053d0) / (80-40) * (nbv-40)
+            1133                     !   case(80:159)
+            1134                     !     kld_tmp = 0.053d0 - (0.053d0 - 0.037d0) / (160-80) * (nbv-80)
+            1135                     !   case(160:319)
+            1136                     !     kld_tmp = 0.037d0 - (0.037d0 - 0.024d0) / (320-160) * (nbv-160)
+            1137                     !   case(320:639)
+            1138                     !     kld_tmp = 0.024d0 - (0.024d0 - 0.016d0) / (640-320) * (nbv-320)
+            1139                     !   case(640:1279)
+            1140                     !     kld_tmp = 0.016d0 - (0.016d0 - 0.011d0) / (1280-640) * (nbv-640)
+            1141                     !   case(1280:2559)
+            1142                     !     kld_tmp = 0.011d0 - (0.011d0 - 0.010d0) / (2560-1280) * (nbv-1280)
+            1143                     !   case(2560:)
+            1144                     !     kld_tmp = 0.010d0
+            1145                     ! end select
+            1146                     
+            1147                       !--- 85 percentile ---!
+            1148                     ! select case(nbv)
+            1149                     !   case(:19)
+            1150                     !     kld_tmp = 0.250d0 - (0.25d0 - 0.109d0) / 20 * nbv
+            1151                     !   case(20:39)
+            1152                     !     kld_tmp = 0.109d0 - (0.109d0 - 0.084d0) / (40-20) * (nbv-20)
+            1153                     !   case(40:79)
+            1154                     !     kld_tmp = 0.084d0 - (0.084d0 - 0.059d0) / (80-40) * (nbv-40)
+            1155                     !   case(80:159)
+            1156                     !     kld_tmp = 0.059d0 - (0.059d0 - 0.040d0) / (160-80) * (nbv-80)
+            1157                     !   case(160:319)
+            1158                     !     kld_tmp = 0.040d0 - (0.040d0 - 0.026d0) / (320-160) * (nbv-160)
+            1159                     !   case(320:639)
+            1160                     !     kld_tmp = 0.026d0 - (0.026d0 - 0.017d0) / (640-320) * (nbv-320)
+            1161                     !   case(640:1279)
+            1162                     !     kld_tmp = 0.017d0 - (0.017d0 - 0.011d0) / (1280-640) * (nbv-640)
+            1163                     !   case(1280:2559)
+            1164                     !     kld_tmp = 0.011d0 - (0.011d0 - 0.010d0) / (2560-1280) * (nbv-1280)
+            1165                     !   case(2560:)
+            1166                     !     kld_tmp = 0.010d0
+            1167                     ! end select
+            1168                     
+            1169                       !--- 90 percentile ---!
+            1170     1                 select case(nbv)
+            1171     1                   case(:19)
+            1172     1                     kld_tmp = 0.250d0 - (0.25d0 - 0.125d0) / 20 * nbv
+            1173     1                   case(20:39)
+            1174     1                     kld_tmp = 0.125d0 - (0.125d0 - 0.096d0) / (40-20) * (nbv-20)
+            1175     1                   case(40:79)
+            1176     1                     kld_tmp = 0.096d0 - (0.096d0 - 0.066d0) / (80-40) * (nbv-40)
+            1177     1                   case(80:159)
+            1178     1                     kld_tmp = 0.066d0 - (0.066d0 - 0.044d0) / (160-80) * (nbv-80)
+            1179     1                   case(160:319)
+            1180     1                     kld_tmp = 0.044d0 - (0.044d0 - 0.029d0) / (320-160) * (nbv-160)
+            1181     1                   case(320:639)
+            1182     1                     kld_tmp = 0.029d0 - (0.029d0 - 0.018d0) / (640-320) * (nbv-320)
+            1183     1                   case(640:1279)
+            1184     1                     kld_tmp = 0.018d0 - (0.018d0 - 0.012d0) / (1280-640) * (nbv-640)
+            1185     1                   case(1280:2559)
+            1186     1                     kld_tmp = 0.012d0 - (0.012d0 - 0.010d0) / (2560-1280) * (nbv-1280)
+            1187     1                   case(2560:)
+            1188     1                     kld_tmp = 0.010d0
+            1189     1                 end select
+            1190                     
+            1191                       !--- 95 percentile ---!
+            1192                     ! select case(nbv)
+            1193                     !   case(:19)
+            1194                     !     kld_tmp = 0.250d0 - (0.25d0 - 0.158d0) / 20 * nbv
+            1195                     !   case(20:39)
+            1196                     !     kld_tmp = 0.158d0 - (0.158d0 - 0.118d0) / (40-20) * (nbv-20)
+            1197                     !   case(40:79)
+            1198                     !     kld_tmp = 0.118d0 - (0.118d0 - 0.077d0) / (80-40) * (nbv-40)
+            1199                     !   case(80:159)
+            1200                     !     kld_tmp = 0.077d0 - (0.077d0 - 0.050d0) / (160-80) * (nbv-80)
+            1201                     !   case(160:319)
+            1202                     !     kld_tmp = 0.050d0 - (0.050d0 - 0.032d0) / (320-160) * (nbv-160)
+            1203                     !   case(320:639)
+            1204                     !     kld_tmp = 0.032d0 - (0.032d0 - 0.021d0) / (640-320) * (nbv-320)
+            1205                     !   case(640:1279)
+            1206                     !     kld_tmp = 0.021d0 - (0.021d0 - 0.013d0) / (1280-640) * (nbv-640)
+            1207                     !   case(1280:2559)
+            1208                     !     kld_tmp = 0.013d0 - (0.013d0 - 0.010d0) / (2560-1280) * (nbv-1280)
+            1209                     !   case(2560:)
+            1210                     !     kld_tmp = 0.010d0
+            1211                     ! end select
+            1212                     
+            1213                     ! kld_floor = max(kld_tmp, 0.02d0)
+            1214                       kld_floor = max(kld_tmp, 0.010d0)
+            1215                     
+            1216                       RETURN
+            1217                     END SUBROUTINE kld_threshold
+            1218                     !-----------------------------------------------------------------------
+            1219                     ! Quick sort     ! KK 20171110
+            1220                     !-----------------------------------------------------------------------
+            1221                     recursive subroutine qsort(ndim, var)
+            1222                       implicit none
+            1223                     
+            1224                       INTEGER, INTENT(IN)        :: ndim
+            1225                       REAL(r_size),INTENT(INOUT) :: var(ndim)
+            1226                       INTEGER :: i, imin, imax, is
+            1227                       REAL(r_size) :: p, it
+            1228                     
+            1229                       if(ndim == 1) return
+            1230                     
+            1231                       p = var(1)
+            1232                       imin = 1
+            1233                       imax = ndim
+            1234     1                 do while(imin < imax)
+            1235     2                   do while(var(imin) < p .and. imin < imax)
+            1236     2                     imin = imin + 1
+            1237     2                   enddo
+            1238     2                   do while(p <= var(imax) .and. imin < imax)
+            1239     2                     imax = imax - 1
+            1240     2                   enddo
+            1241     2                   if(imin < imax)then
+            1242     2                     it = var(imax)
+            1243     2                     var(imax) = var(imin)
+            1244     2                     var(imin) = it
+            1245     2                   endif
+            1246     1                 enddo
+            1247                       is = imax - 1
+            1248                       if(is == 0) is = 1
+            1249                       call qsort(is,      var(1:is))
+            1250                       call qsort(ndim-is, var(is+1:ndim))
+            1251                     
+            1252                       return
+            1253                     end subroutine qsort
+            1254                     !-----------------------------------------------------------------------
+            1255                     recursive subroutine iqsort(ndim, var)
+            1256                       implicit none
+            1257                     
+            1258                       INTEGER, INTENT(IN)    :: ndim
+            1259                       INTEGER, INTENT(INOUT) :: var(ndim)
+            1260                       INTEGER :: i, imin, imax, is
+            1261                       INTEGER :: p, it
+            1262                     
+            1263                       if(ndim == 1) return
+            1264                     
+            1265                       p = var(1)
+            1266                       imin = 1
+            1267                       imax = ndim
+            1268     1                 do while(imin < imax)
+            1269     2                   do while(var(imin) < p .and. imin < imax)
+            1270     2                     imin = imin + 1
+            1271     2                   enddo
+            1272     2                   do while(p <= var(imax) .and. imin < imax)
+            1273     2                     imax = imax - 1
+            1274     2                   enddo
+            1275     2                   if(imin < imax)then
+            1276     2                     it = var(imax)
+            1277     2                     var(imax) = var(imin)
+            1278     2                     var(imin) = it
+            1279     2                   endif
+            1280     1                 enddo
+            1281                       is = imax - 1
+            1282                       if(is == 0) is = 1
+            1283                       call iqsort(is,      var(1:is))
+            1284                       call iqsort(ndim-is, var(is+1:ndim))
+            1285                     
+            1286                       return
+            1287                     end subroutine iqsort
+            1288                     !-----------------------------------------------------------------------
+            1289                     recursive subroutine qsort2(ndim,var,r)
+            1290                       implicit none
+            1291                     
+            1292                       integer, intent(in) :: ndim
+            1293                       real(8), intent(inout) :: var(ndim)
+            1294                       integer, intent(inout) :: r(ndim)
+            1295                       integer :: i,imin,imax,is
+            1296                       real(8) :: p, it
+            1297                       integer :: ir
+            1298                     
+            1299                       if(ndim == 1) return
+            1300                       p = var(1)
+            1301                       imin = 1
+            1302                       imax = ndim
+            1303     1                 do while(imin < imax)
+            1304     2                   do while(var(imin) < p .and. imin < imax)
+            1305     2                     imin = imin + 1
+            1306     2                   enddo
+            1307     2                   do while(p <= var(imax) .and. imin < imax)
+            1308     2                     imax = imax - 1
+            1309     2                   enddo
+            1310     2                   if(imin < imax)then
+            1311     2                     it = var(imax)
+            1312     2                     ir = r(imax)
+            1313     2                     var(imax) = var(imin)
+            1314     2                     r(imax) = r(imin)
+            1315     2                     var(imin) = it
+            1316     2                     r(imin) = ir
+            1317     2                   endif
+            1318     1                 enddo
+            1319                       is = imax - 1
+            1320                       if(is == 0) is = 1
+            1321                       call qsort2(is, var(1:is), r(1:is))
+            1322                       call qsort2(ndim-is, var(is + 1:ndim), r(is + 1:ndim))
+            1323                     
+            1324                       return
+            1325                     end subroutine qsort2
+            1326                     !-----------------------------------------------------------------------
+            1327                     recursive subroutine iqsort2(ndim,var,r)
+            1328                       implicit none
+            1329                     
+            1330                       integer, intent(in) :: ndim
+            1331                       integer, intent(inout) :: var(ndim)
+            1332                       integer, intent(inout) :: r(ndim)
+            1333                       integer :: i,imin,imax,is
+            1334                       integer :: p, it
+            1335                       integer :: ir
+            1336                     
+            1337                       if(ndim == 1) return
+            1338                       p = var(1)
+            1339                       imin = 1
+            1340                       imax = ndim
+            1341     1                 do while(imin < imax)
+            1342     2                   do while(var(imin) < p .and. imin < imax)
+            1343     2                     imin = imin + 1
+            1344     2                   enddo
+            1345     2                   do while(p <= var(imax) .and. imin < imax)
+            1346     2                     imax = imax - 1
+            1347     2                   enddo
+            1348     2                   if(imin < imax)then
+            1349     2                     it = var(imax)
+            1350     2                     ir = r(imax)
+            1351     2                     var(imax) = var(imin)
+            1352     2                     r(imax) = r(imin)
+            1353     2                     var(imin) = it
+            1354     2                     r(imin) = ir
+            1355     2                   endif
+            1356     1                 enddo
+            1357                       is = imax - 1
+            1358                       if(is == 0) is = 1
+            1359                       call iqsort2(is, var(1:is), r(1:is))
+            1360                       call iqsort2(ndim-is, var(is + 1:ndim), r(is + 1:ndim))
+            1361                     
+            1362                       return
+            1363                     end subroutine iqsort2
+            1364                     !-----------------------------------------------------------------------
+            1365                     recursive subroutine qsort3(ndim,var,r)
+            1366                       implicit none
+            1367                     
+            1368                       integer, intent(in) :: ndim
+            1369                       real(8), intent(inout) :: var(ndim)
+            1370                       real(8), intent(inout) :: r(ndim)
+            1371                       integer :: i,imin,imax,is
+            1372                       real(8) :: p, it, ir
+            1373                     
+            1374                       if(ndim == 1) return
+            1375                       p = var(1)
+            1376                       imin = 1
+            1377                       imax = ndim
+            1378     1                 do while(imin < imax)
+            1379     2                   do while(var(imin) < p .and. imin < imax)
+            1380     2                     imin = imin + 1
+            1381     2                   enddo
+            1382     2                   do while(p <= var(imax) .and. imin < imax)
+            1383     2                     imax = imax - 1
+            1384     2                   enddo
+            1385     2                   if(imin < imax)then
+            1386     2                     it = var(imax)
+            1387     2                     ir = r(imax)
+            1388     2                     var(imax) = var(imin)
+            1389     2                     r(imax) = r(imin)
+            1390     2                     var(imin) = it
+            1391     2                     r(imin) = ir
+            1392     2                   endif
+            1393     1                 enddo
+            1394                       is = imax - 1
+            1395                       if(is == 0) is = 1
+            1396                       call qsort3(is, var(1:is), r(1:is))
+            1397                       call qsort3(ndim-is, var(is + 1:ndim), r(is + 1:ndim))
+            1398                     
+            1399                       return
+            1400                     end subroutine qsort3
+            1401                     END MODULE common
+
+ Diagnostic messages: program name(common)
+   jwd8220o-i  "common.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(com_mean)
+   jwd8208o-i  "common.f90", line 52: Method of calculating sum or product is changed.
+  Module subprogram name(com_stdev)
+   jwd8208o-i  "common.f90", line 75: Method of calculating sum or product is changed.
+  Module subprogram name(com_covar)
+   jwd8208o-i  "common.f90", line 99: Method of calculating sum or product is changed.
+  Module subprogram name(com_correl)
+   jwd8209o-i  "common.f90", line 120: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_anomcorrel)
+   jwd8208o-i  "common.f90", line 139: Method of calculating sum or product is changed.
+   jwd8206o-i  "common.f90", line 141: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "common.f90", line 141: Method of calculating sum or product is changed.
+  Module subprogram name(com_l2norm)
+   jwd8208o-i  "common.f90", line 155: Method of calculating sum or product is changed.
+  Module subprogram name(com_rms)
+   jwd8208o-i  "common.f90", line 169: Method of calculating sum or product is changed.
+  Module subprogram name(com_filter_lanczos)
+   jwd8220o-i  "common.f90", line 193: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "common.f90", line 195: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 195: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 197: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "common.f90", line 198: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "common.f90", line 200: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 200: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 202: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common.f90", line 203: Division is changed to multiplication by reciprocal.
+  Module subprogram name(com_randn)
+   jwd8209o-i  "common.f90", line 307: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 314: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 319: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_distll)
+   jwd8209o-i  "common.f90", line 447: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 448: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 449: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_distll_1)
+   jwd8209o-i  "common.f90", line 475: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 476: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 477: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 479: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_distll_1f)
+   jwd8209o-i  "common.f90", line 500: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 501: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 502: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 504: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_interp_spline)
+   jwd8209o-i  "common.f90", line 543: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 549: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 554: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 560: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 565: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 581: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_pos2ij)
+   jwd8209o-i  "common.f90", line 684: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common.f90", line 688: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 689: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 690: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 691: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 693: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 695: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "common.f90", line 715: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8220o-i  "common.f90", line 721: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8201o-i  "common.f90", line 722: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "common.f90", line 724: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 741: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common.f90", line 745: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 746: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 747: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 748: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 750: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common.f90", line 751: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_utc2tai)
+   jwd8209o-i  "common.f90", line 779: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(com_tai2utc)
+   jwd8201o-i  "common.f90", line 815: Invariant expression within loop is moved outside loop.
+   jwd8206o-i  "common.f90", line 818: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 824: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 837: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 839: Division is changed to multiplication by reciprocal.
+  Module subprogram name(com_kld)
+   jwd8208o-i  "common.f90", line 982: Method of calculating sum or product is changed.
+   jwd8208o-i  "common.f90", line 984: Method of calculating sum or product is changed.
+   jwd8206o-i  "common.f90", line 990: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 1004: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "common.f90", line 1004: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8209o-i  "common.f90", line 1015: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8201o-i  "common.f90", line 1015: Invariant expression within loop is moved outside loop.
+   jwd8220o-i  "common.f90", line 1015: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd8206o-i  "common.f90", line 1032: Division is changed to multiplication by reciprocal.
+   jwd8206o-i  "common.f90", line 1038: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common.f90", line 1038: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8220o-i  "common.f90", line 1039: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(qsort)
+   jwd2006i-i  "common.f90", line 1226: 'i' is declared but never referenced.
+  Module subprogram name(iqsort)
+   jwd2006i-i  "common.f90", line 1260: 'i' is declared but never referenced.
+  Module subprogram name(qsort2)
+   jwd2006i-i  "common.f90", line 1295: 'i' is declared but never referenced.
+  Module subprogram name(iqsort2)
+   jwd2006i-i  "common.f90", line 1333: 'i' is declared but never referenced.
+  Module subprogram name(qsort3)
+   jwd2006i-i  "common.f90", line 1371: 'i' is declared but never referenced.
+
+ Procedure information
+   Lines      : 1401
+   Statements : 946
+   Stack(byte): 160944
+   Prefetch num: 42
+
+ Total information
+   Procedures       : 1
+   Total lines      : 1401
+   Total statements : 946
+   Total stack(byte): 160944
+   Total prefetch num: 42
+

@@ -1,0 +1,876 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:55:04 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_obs_speedy.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_obs_speedy"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_obs_speedy
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Observational procedures
+               5                     !
+               6                     ! [HISTORY:]
+               7                     !   01/23/2009 Takemasa MIYOSHI  created
+               8                     !
+               9                     !=======================================================================
+              10                     !$USE OMP_LIB
+              11                       USE common
+              12                       USE common_speedy
+              13                     
+              14                       IMPLICIT NONE
+              15                       PUBLIC
+              16                     
+              17                       INTEGER,PARAMETER :: nid_obs=7
+              18                       INTEGER,PARAMETER :: id_u_obs=2819
+              19                       INTEGER,PARAMETER :: id_v_obs=2820
+              20                       INTEGER,PARAMETER :: id_t_obs=3073
+              21                       INTEGER,PARAMETER :: id_q_obs=3330
+              22                       INTEGER,PARAMETER :: id_rh_obs=3331
+              23                       INTEGER,PARAMETER :: id_ps_obs=14593
+              24                       INTEGER,PARAMETER :: id_rain_obs=9999
+              25                     
+              26                       ! Adapted from SO's code :: 20181219
+              27                       integer, parameter :: obs_ids(nid_obs) = (/                                       & !SO
+              28                            & id_u_obs, id_v_obs, id_t_obs, id_q_obs, id_rh_obs, id_ps_obs, id_rain_obs /) ! 1-7
+              29                       character(15), parameter :: obs_names(nid_obs) = (/   & !SO
+              30                            & "U", "V", "T", "Q", "RH", "PS", "Rain"        /) ! 1-7
+              31                     
+              32                     CONTAINS
+              33                     !-----------------------------------------------------------------------
+              34                     ! Transformation from model variables to an observation
+              35                     !-----------------------------------------------------------------------
+              36                     SUBROUTINE Trans_XtoY(elm,ri,rj,rk,v3d,v2d,p_full,yobs)
+              37                       IMPLICIT NONE
+              38                       REAL(r_size),INTENT(IN) :: elm
+              39                       REAL(r_size),INTENT(IN) :: ri,rj,rk
+              40                       REAL(r_size),INTENT(IN) :: v3d(nlon,nlat,nlev,nv3d)
+              41                       REAL(r_size),INTENT(IN) :: v2d(nlon,nlat,nv2d)
+              42                       REAL(r_size),INTENT(IN) :: p_full(nlon,nlat,nlev)
+              43                       REAL(r_size),INTENT(OUT) :: yobs
+              44                       REAL(r_size) :: rh(nlon,nlat,nlev)
+              45                       INTEGER :: i,j,k
+              46                       INTEGER :: is,ie,js,je,ks,ke
+              47                       ie = CEILING( ri )
+              48                       is = ie-1
+              49                       je = CEILING( rj )
+              50                       js = je-1
+              51                       ke = CEILING( rk )
+              52                       ks = ke-1
+              53                     
+              54     1                 SELECT CASE (NINT(elm))
+              55     1                 CASE(id_u_obs)  ! U
+              56     1                   CALL itpl_3d(v3d(:,:,:,iv3d_u),ri,rj,rk,yobs)
+              57     1                 CASE(id_v_obs)  ! V
+              58     1                   CALL itpl_3d(v3d(:,:,:,iv3d_v),ri,rj,rk,yobs)
+              59     1                 CASE(id_t_obs)  ! T
+              60     1                   CALL itpl_3d(v3d(:,:,:,iv3d_t),ri,rj,rk,yobs)
+              61     1                 CASE(id_q_obs)  ! Q
+              62     1                   CALL itpl_3d(v3d(:,:,:,iv3d_q),ri,rj,rk,yobs)
+              63     1                 CASE(id_ps_obs) ! PS
+              64     1                   CALL itpl_2d(v2d(:,:,iv2d_ps),ri,rj,yobs)
+              65     1                 CASE(id_rain_obs) ! RAIN
+              66     1                   CALL itpl_2d(v2d(:,:,iv2d_rain),ri,rj,yobs)
+              67     1                 CASE(id_rh_obs) ! RH
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    UNSWITCHING
+                                   <<< Loop-information  End >>>
+              68     2                   DO k=ks,ke
+              69     3   s    s            DO j=js,je
+              70     4   s    s              IF(ie <= nlon ) THEN
+              71     4        s                CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
+              72     4                           & p_full(is,j,k),rh(is,j,k))
+              73     4   s    s                CALL calc_rh(v3d(ie,j,k,iv3d_t),v3d(ie,j,k,iv3d_q),&
+              74     4                           & p_full(ie,j,k),rh(ie,j,k))
+              75     4   s    s              ELSE
+              76     4   s    s                CALL calc_rh(v3d(is,j,k,iv3d_t),v3d(is,j,k,iv3d_q),&
+              77     4                           & p_full(is,j,k),rh(is,j,k))
+              78     4   s    s                CALL calc_rh(v3d( 1,j,k,iv3d_t),v3d( 1,j,k,iv3d_q),&
+              79     4                           & p_full( 1,j,k),rh( 1,j,k))
+              80     4   s    s              END IF
+              81     3   s    s            END DO
+              82     2                   END DO
+              83     1                   CALL itpl_3d(rh,ri,rj,rk,yobs)
+              84     1                 END SELECT
+              85                     
+              86                       RETURN
+              87                     END SUBROUTINE Trans_XtoY
+              88                     !-----------------------------------------------------------------------
+              89                     ! Compute relative humidity (RH)
+              90                     !-----------------------------------------------------------------------
+              91                     SUBROUTINE calc_rh(t,q,p,rh)
+              92                       IMPLICIT NONE
+              93                       REAL(r_size),PARAMETER :: t0=273.15d0
+              94                       REAL(r_size),PARAMETER :: e0c=6.11d0
+              95                       REAL(r_size),PARAMETER :: al=17.3d0
+              96                       REAL(r_size),PARAMETER :: bl=237.3d0
+              97                       REAL(r_size),PARAMETER :: e0i=6.1121d0
+              98                       REAL(r_size),PARAMETER :: ai=22.587d0
+              99                       REAL(r_size),PARAMETER :: bi=273.86d0
+             100                       REAL(r_size),INTENT(IN) :: t,q,p
+             101                       REAL(r_size),INTENT(OUT) :: rh
+             102                       REAL(r_size) :: e,es,tc
+             103                     
+             104                       e = q * p * 0.01d0 / (0.378d0 * q + 0.622d0)
+             105                     
+             106                       tc = t-t0
+             107     1                 IF(tc >= 0.0d0) THEN
+             108     1                   es = e0c * exp(al*tc/(bl+tc))
+             109     1                 ELSE IF(tc <= -15.d0) THEN
+             110     1                   es = e0i * exp(ai*tc/(bi+tc))
+             111     1                 ELSE
+             112     1                   es = e0c * exp(al*tc/(bl+tc)) * (15.0d0+tc)/15.0d0 &
+             113     1                      + e0i * exp(ai*tc/(bi+tc)) * (-tc) / 15.0d0
+             114     1                 END IF
+             115                     
+             116                       rh = e/es
+             117                     
+             118                       RETURN
+             119                     END SUBROUTINE calc_rh
+             120                     !-----------------------------------------------------------------------
+             121                     ! Pressure adjustment for a different height level
+             122                     !-----------------------------------------------------------------------
+             123                     SUBROUTINE prsadj(p,dz,t,q)
+             124                       IMPLICIT NONE
+             125                       REAL(r_size),INTENT(INOUT) :: p
+             126                       REAL(r_size),INTENT(IN) :: dz ! height difference (target - original) [m]
+             127                       REAL(r_size),INTENT(IN) :: t  ! temperature [K] at target level
+             128                       REAL(r_size),INTENT(IN) :: q  ! humidity [kg/kg] at target level
+             129                       REAL(r_size),PARAMETER :: gamma=5.0d-3 ! lapse rate [K/m]
+             130                       REAL(r_size) :: tv
+             131                     
+             132                       tv = t * (1.0d0 + 0.608d0 * q)
+             133     1                 IF(dz /= 0) THEN
+             134     1               !    p = p * ((-gamma*dz+tv)/tv)**(gg/(gamma*rd)) !tv is at original level
+             135     1                   p = p * (tv/(tv+gamma*dz))**(gg/(gamma*rd)) !tv is at target level
+             136     1                 END IF
+             137                     
+             138                       RETURN
+             139                     END SUBROUTINE prsadj
+             140                     !-----------------------------------------------------------------------
+             141                     ! Coordinate conversion
+             142                     !-----------------------------------------------------------------------
+             143                     SUBROUTINE phys2ijk(p_full,elem,rlon,rlat,rlev,ri,rj,rk)
+             144                       IMPLICIT NONE
+             145                       REAL(r_size),INTENT(IN) :: p_full(nlon,nlat,nlev)
+             146                       REAL(r_size),INTENT(IN) :: elem
+             147                       REAL(r_size),INTENT(IN) :: rlon
+             148                       REAL(r_size),INTENT(IN) :: rlat
+             149                       REAL(r_size),INTENT(IN) :: rlev ! pressure levels
+             150                       REAL(r_size),INTENT(OUT) :: ri
+             151                       REAL(r_size),INTENT(OUT) :: rj
+             152                       REAL(r_size),INTENT(OUT) :: rk
+             153                       REAL(r_size) :: aj,ak
+             154                       REAL(r_size) :: lnps(nlon,nlat)
+             155                       REAL(r_size) :: plev(nlev)
+             156                       INTEGER :: i,j,k
+             157                     !
+             158                     ! rlon -> ri
+             159                     !
+             160     1                 IF(rlon == 0.0 .OR. rlon == 360.0) THEN
+             161     1                   ri = REAL(nlon+1,r_size)
+             162     1                 ELSE
+             163     1                   ri = rlon / 360.0d0 * REAL(nlon,r_size) + 1.0d0
+             164     1                 END IF
+             165                       IF(CEILING(ri) < 2 .OR. nlon+1 < CEILING(ri)) RETURN
+             166                     !
+             167                     ! rlat -> rj
+             168                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      lat
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      lat: 14
+                                   <<< Loop-information  End >>>
+             169     1       8         DO j=1,nlat
+             170     1       8           IF(rlat < lat(j)) EXIT
+             171     1       8         END DO
+             172     1                 IF(j == 1) THEN
+             173     1                   rj = (rlat + 90.0d0) / (lat(1) + 90.0d0)
+             174     1                 ELSE IF(j == nlat+1) THEN
+             175     1                   aj = (rlat - lat(nlat)) / (90.0d0 - lat(nlat))
+             176     1                   rj = REAL(nlat,r_size) + aj
+             177     1                 ELSE
+             178     1                   aj = (rlat - lat(j-1)) / (lat(j) - lat(j-1))
+             179     1                   rj = REAL(j-1,r_size) + aj
+             180     1                 END IF
+             181                       IF(CEILING(rj) < 2 .OR. nlat < CEILING(rj)) RETURN
+             182                     !
+             183                     ! rlev -> rk
+             184                     !
+             185     1                 IF(NINT(elem) == id_ps_obs) THEN ! surface pressure observation
+             186     1                   rk = 0.0d0
+             187     1                 ELSE
+             188     1                   !
+             189     1                   ! horizontal interpolation
+             190     1                   !
+             191     1                   i = CEILING(ri)
+             192     1                   j = CEILING(rj)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             193     2       f           DO k=1,nlev
+             194     3       f             IF(i <= nlon) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 22
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             195     3   s   f               lnps(i-1:i,j-1:j) = LOG(p_full(i-1:i,j-1:j,k))
+             196     3       f             ELSE
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 23
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             197     3   s   f               lnps(i-1,j-1:j) = LOG(p_full(i-1,j-1:j,k))
+             198     3   p   f               lnps(1,j-1:j) = LOG(p_full(1,j-1:j,k))
+             199     3       f             END IF
+             200     2       f             CALL itpl_2d(lnps,ri,rj,plev(k))
+             201     2       f           END DO
+             202     1                   !
+             203     1                   ! Log pressure
+             204     1                   !
+             205     1                   rk = LOG(rlev)
+             206     1                   !
+             207     1                   ! find rk
+             208     1                   !
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             209     2       f           DO k=2,nlev-1
+             210     2       f             IF(plev(k) < rk) EXIT ! assuming descending order of plev
+             211     2       f           END DO
+             212     1                   ak = (rk - plev(k-1)) / (plev(k) - plev(k-1))
+             213     1                   rk = REAL(k-1,r_size) + ak
+             214     1                 END IF
+             215                     
+             216                       RETURN
+             217                     END SUBROUTINE phys2ijk
+             218                     !-----------------------------------------------------------------------
+             219                     ! Interpolation
+             220                     !-----------------------------------------------------------------------
+             221                     SUBROUTINE itpl_2d(var,ri,rj,var5)
+             222                       IMPLICIT NONE
+             223                       REAL(r_size),INTENT(IN) :: var(nlon,nlat)
+             224                       REAL(r_size),INTENT(IN) :: ri
+             225                       REAL(r_size),INTENT(IN) :: rj
+             226                       REAL(r_size),INTENT(OUT) :: var5
+             227                       REAL(r_size) :: ai,aj
+             228                       INTEGER :: i,j
+             229                     
+             230                       i = CEILING(ri)
+             231                       ai = ri - REAL(i-1,r_size)
+             232                       j = CEILING(rj)
+             233                       aj = rj - REAL(j-1,r_size)
+             234                     
+             235     1                 IF(i <= nlon) THEN
+             236     1                   var5 = var(i-1,j-1) * (1-ai) * (1-aj) &
+             237     1                      & + var(i  ,j-1) *    ai  * (1-aj) &
+             238     1                      & + var(i-1,j  ) * (1-ai) *    aj  &
+             239     1                      & + var(i  ,j  ) *    ai  *    aj
+             240     1                 ELSE
+             241     1                   var5 = var(i-1,j-1) * (1-ai) * (1-aj) &
+             242     1                      & + var(1  ,j-1) *    ai  * (1-aj) &
+             243     1                      & + var(i-1,j  ) * (1-ai) *    aj  &
+             244     1                      & + var(1  ,j  ) *    ai  *    aj
+             245     1                 END IF
+             246                     
+             247                       RETURN
+             248                     END SUBROUTINE itpl_2d
+             249                     
+             250                     SUBROUTINE itpl_3d(var,ri,rj,rk,var5)
+             251                       IMPLICIT NONE
+             252                       REAL(r_size),INTENT(IN) :: var(nlon,nlat,nlev)
+             253                       REAL(r_size),INTENT(IN) :: ri
+             254                       REAL(r_size),INTENT(IN) :: rj
+             255                       REAL(r_size),INTENT(IN) :: rk
+             256                       REAL(r_size),INTENT(OUT) :: var5
+             257                       REAL(r_size) :: ai,aj,ak
+             258                       INTEGER :: i,j,k
+             259                     
+             260                       i = CEILING(ri)
+             261                       ai = ri - REAL(i-1,r_size)
+             262                       j = CEILING(rj)
+             263                       aj = rj - REAL(j-1,r_size)
+             264                       k = CEILING(rk)
+             265                       ak = rk - REAL(k-1,r_size)
+             266                     
+             267     1                 IF(i <= nlon) THEN
+             268     1                   var5 = var(i-1,j-1,k-1) * (1-ai) * (1-aj) * (1-ak) &
+             269     1                      & + var(i  ,j-1,k-1) *    ai  * (1-aj) * (1-ak) &
+             270     1                      & + var(i-1,j  ,k-1) * (1-ai) *    aj  * (1-ak) &
+             271     1                      & + var(i  ,j  ,k-1) *    ai  *    aj  * (1-ak) &
+             272     1                      & + var(i-1,j-1,k  ) * (1-ai) * (1-aj) *    ak  &
+             273     1                      & + var(i  ,j-1,k  ) *    ai  * (1-aj) *    ak  &
+             274     1                      & + var(i-1,j  ,k  ) * (1-ai) *    aj  *    ak  &
+             275     1                      & + var(i  ,j  ,k  ) *    ai  *    aj  *    ak
+             276     1                 ELSE
+             277     1                   var5 = var(i-1,j-1,k-1) * (1-ai) * (1-aj) * (1-ak) &
+             278     1                      & + var(1  ,j-1,k-1) *    ai  * (1-aj) * (1-ak) &
+             279     1                      & + var(i-1,j  ,k-1) * (1-ai) *    aj  * (1-ak) &
+             280     1                      & + var(1  ,j  ,k-1) *    ai  *    aj  * (1-ak) &
+             281     1                      & + var(i-1,j-1,k  ) * (1-ai) * (1-aj) *    ak  &
+             282     1                      & + var(1  ,j-1,k  ) *    ai  * (1-aj) *    ak  &
+             283     1                      & + var(i-1,j  ,k  ) * (1-ai) *    aj  *    ak  &
+             284     1                      & + var(1  ,j  ,k  ) *    ai  *    aj  *    ak
+             285     1                 END IF
+             286                     
+             287                       RETURN
+             288                     END SUBROUTINE itpl_3d
+             289                     !-----------------------------------------------------------------------
+             290                     ! Monitor departure
+             291                     !-----------------------------------------------------------------------
+             292                     SUBROUTINE monit_dep(nn,elm,dep,qc)
+             293                       IMPLICIT NONE
+             294                       INTEGER,INTENT(IN) :: nn
+             295                       REAL(r_size),INTENT(IN) :: elm(nn)
+             296                       REAL(r_size),INTENT(IN) :: dep(nn)
+             297                       INTEGER,INTENT(IN) :: qc(nn)
+             298                       REAL(r_size) :: rmse_u,rmse_v,rmse_t,rmse_q,rmse_ps,rmse_rh
+             299                       REAL(r_size) :: bias_u,bias_v,bias_t,bias_q,bias_ps,bias_rh
+             300                       INTEGER :: n,iu,iv,it,iq,ips,irh
+             301                     
+             302                       rmse_u = 0.0d0
+             303                       rmse_v = 0.0d0
+             304                       rmse_t = 0.0d0
+             305                       rmse_q = 0.0d0
+             306                       rmse_ps = 0.0d0
+             307                       rmse_rh = 0.0d0
+             308                       bias_u = 0.0d0
+             309                       bias_v = 0.0d0
+             310                       bias_t = 0.0d0
+             311                       bias_q = 0.0d0
+             312                       bias_ps = 0.0d0
+             313                       bias_rh = 0.0d0
+             314                       iu = 0
+             315                       iv = 0
+             316                       it = 0
+             317                       iq = 0
+             318                       ips = 0
+             319                       irh = 0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 106
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      qc
+                                   <<<    PREFETCH(SOFT) : 28
+                                   <<<     SEQUENTIAL : 28
+                                   <<<      elm: 4, dep: 24
+                                   <<< Loop-information  End >>>
+             320     1  pp   2s        DO n=1,nn
+             321     1   p   2v          IF(qc(n) /= 1) CYCLE
+             322     2   p   2m          SELECT CASE(NINT(elm(n)))
+             323     2   p   2           CASE(id_u_obs)
+             324     2   p   2m            rmse_u = rmse_u + dep(n)**2
+             325     2   p   2v            bias_u = bias_u + dep(n)
+             326     2   p   2v            iu = iu + 1
+             327     2   p   2           CASE(id_v_obs)
+             328     2   p   2v            rmse_v = rmse_v + dep(n)**2
+             329     2   p   2v            bias_v = bias_v + dep(n)
+             330     2   p   2v            iv = iv + 1
+             331     2   p   2           CASE(id_t_obs)
+             332     2   p   2v            rmse_t = rmse_t + dep(n)**2
+             333     2   p   2v            bias_t = bias_t + dep(n)
+             334     2   p   2v            it = it + 1
+             335     2   p   2           CASE(id_q_obs)
+             336     2   p   2v            rmse_q = rmse_q + dep(n)**2
+             337     2   p   2v            bias_q = bias_q + dep(n)
+             338     2   p   2v            iq = iq + 1
+             339     2   p   2           CASE(id_ps_obs)
+             340     2   p   2v            rmse_ps = rmse_ps + dep(n)**2
+             341     2   p   2v            bias_ps = bias_ps + dep(n)
+             342     2   p   2v            ips = ips + 1
+             343     2   p   2           CASE(id_rh_obs)
+             344     2   p   2v            rmse_rh = rmse_rh + dep(n)**2
+             345     2   p   2v            bias_rh = bias_rh + dep(n)
+             346     2   p   2v            irh = irh + 1
+             347     2       2           END SELECT
+             348     1   p   2v        END DO
+             349     1                 IF(iu == 0) THEN
+             350     1                   rmse_u = undef
+             351     1                   bias_u = undef
+             352     1                 ELSE
+             353     1                   rmse_u = SQRT(rmse_u / REAL(iu,r_size))
+             354     1                   bias_u = bias_u / REAL(iu,r_size)
+             355     1                 END IF
+             356     1                 IF(iv == 0) THEN
+             357     1                   rmse_v = undef
+             358     1                   bias_v = undef
+             359     1                 ELSE
+             360     1                   rmse_v = SQRT(rmse_v / REAL(iv,r_size))
+             361     1                   bias_v = bias_v / REAL(iv,r_size)
+             362     1                 END IF
+             363     1                 IF(it == 0) THEN
+             364     1                   rmse_t = undef
+             365     1                   bias_t = undef
+             366     1                 ELSE
+             367     1                   rmse_t = SQRT(rmse_t / REAL(it,r_size))
+             368     1                   bias_t = bias_t / REAL(it,r_size)
+             369     1                 END IF
+             370     1                 IF(iq == 0) THEN
+             371     1                   rmse_q = undef
+             372     1                   bias_q = undef
+             373     1                 ELSE
+             374     1                   rmse_q = SQRT(rmse_q / REAL(iq,r_size))
+             375     1                   bias_q = bias_q / REAL(iq,r_size)
+             376     1                 END IF
+             377     1                 IF(ips == 0) THEN
+             378     1                   rmse_ps = undef
+             379     1                   bias_ps = undef
+             380     1                 ELSE
+             381     1                   rmse_ps = SQRT(rmse_ps / REAL(ips,r_size))
+             382     1                   bias_ps = bias_ps / REAL(ips,r_size)
+             383     1                 END IF
+             384     1                 IF(irh == 0) THEN
+             385     1                   rmse_rh = undef
+             386     1                   bias_rh = undef
+             387     1                 ELSE
+             388     1                   rmse_rh = SQRT(rmse_rh / REAL(irh,r_size))
+             389     1                   bias_rh = bias_rh / REAL(irh,r_size)
+             390     1                 END IF
+             391                     
+             392                       WRITE(6,'(A)') '== OBSERVATIONAL DEPARTURE ============================================='
+             393                       WRITE(6,'(6A12)') 'U','V','T','Q','PS','RH'
+             394                       WRITE(6,'(6ES12.3)') bias_u,bias_v,bias_t,bias_q,bias_ps,bias_rh
+             395                       WRITE(6,'(6ES12.3)') rmse_u,rmse_v,rmse_t,rmse_q,rmse_ps,rmse_rh
+             396                       WRITE(6,'(A)') '== NUMBER OF OBSERVATIONS TO BE ASSIMILATED ============================'
+             397                       WRITE(6,'(6A12)') 'U','V','T','Q','PS','RH'
+             398                       WRITE(6,'(6I12)') iu,iv,it,iq,ips,irh
+             399                       WRITE(6,'(A)') '========================================================================'
+             400                     
+             401                       RETURN
+             402                     END SUBROUTINE monit_dep
+             403                     !-----------------------------------------------------------------------
+             404                     ! Basic modules for observation input
+             405                     !-----------------------------------------------------------------------
+             406                     SUBROUTINE get_nobs(cfile,nrec,nn)
+             407                       IMPLICIT NONE
+             408                       CHARACTER(*),INTENT(IN) :: cfile
+             409                       INTEGER,INTENT(IN) :: nrec
+             410                       INTEGER,INTENT(OUT) :: nn
+             411                       REAL(r_sngl),ALLOCATABLE :: wk(:)
+             412                       INTEGER :: ios
+             413                       INTEGER :: iu,iv,it,iq,irh,ips
+             414                       INTEGER :: iunit
+             415                       LOGICAL :: ex
+             416                       integer :: num_obs_each_id(nid_obs) !SO
+             417                       integer :: iobs                     !SO
+             418                     
+             419                       ALLOCATE(wk(nrec))
+             420                       nn = 0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<< Loop-information  End >>>
+             421         s    v        num_obs_each_id(:) = 0 !SO
+             422                     
+             423                       iunit=91
+             424                       INQUIRE(FILE=cfile,EXIST=ex)
+             425     1                 IF(ex) THEN
+             426     1                   OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+             427     2                   DO
+             428     2                     READ(iunit,IOSTAT=ios) wk
+             429     2                     IF(ios /= 0) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+             430     3       f             do iobs = 1, nid_obs !SO
+             431     3       f                if(obs_ids(iobs) == wk(1)) exit !SO
+             432     3       f             end do !SO
+             433     3                     if(iobs <= nid_obs) then !SO
+             434     3                        num_obs_each_id(iobs) = num_obs_each_id(iobs) + 1 !SO
+             435     3                     else !SO
+             436     3                        write(6, *) "unknown observation ID: ", wk(1) !SO
+             437     3                     end if !SO
+             438     2                     nn = nn + 1
+             439     2                   END DO
+             440     1                   WRITE(6,'(I10,A)') nn,' OBSERVATIONS INPUT'
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      num_obs_each_id
+                                   <<< Loop-information  End >>>
+             441     2   s    s          do iobs = 1, nid_obs !SO
+             442     2   m    m             WRITE(6,'(A15, ": ", I10)') obs_names(iobs), num_obs_each_id(iobs) !SO
+             443     2   p    v          end do !SO
+             444     1                   CLOSE(iunit)
+             445     1                 ELSE
+             446     1                   WRITE(6,'(2A)') cfile,' does not exist -- skipped'
+             447     1                 END IF
+             448                       DEALLOCATE(wk)
+             449                     
+             450                     !!  ALLOCATE(wk(nrec))
+             451                     !!  nn = 0
+             452                     !!  iu = 0
+             453                     !!  iv = 0
+             454                     !!  it = 0
+             455                     !!  iq = 0
+             456                     !!  irh = 0
+             457                     !!  ips = 0
+             458                     !!  iunit=91
+             459                     !!  INQUIRE(FILE=cfile,EXIST=ex)
+             460                     !!  IF(ex) THEN
+             461                     !!    OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+             462                     !!    DO
+             463                     !!      READ(iunit,IOSTAT=ios) wk
+             464                     !!      IF(ios /= 0) EXIT
+             465                     !!      SELECT CASE(NINT(wk(1)))
+             466                     !!      CASE(id_u_obs)
+             467                     !!        iu = iu + 1
+             468                     !!      CASE(id_v_obs)
+             469                     !!        iv = iv + 1
+             470                     !!      CASE(id_t_obs)
+             471                     !!        it = it + 1
+             472                     !!      CASE(id_q_obs)
+             473                     !!        iq = iq + 1
+             474                     !!      CASE(id_rh_obs)
+             475                     !!        irh = irh + 1
+             476                     !!      CASE(id_ps_obs)
+             477                     !!        ips = ips + 1
+             478                     !!      END SELECT
+             479                     !!      nn = nn + 1
+             480                     !!    END DO
+             481                     !!    WRITE(6,'(I10,A)') nn,' OBSERVATIONS INPUT'
+             482                     !!    WRITE(6,'(A12,I10)') '          U:',iu
+             483                     !!    WRITE(6,'(A12,I10)') '          V:',iv
+             484                     !!    WRITE(6,'(A12,I10)') '          T:',it
+             485                     !!    WRITE(6,'(A12,I10)') '          Q:',iq
+             486                     !!    WRITE(6,'(A12,I10)') '         RH:',irh
+             487                     !!    WRITE(6,'(A12,I10)') '         Ps:',ips
+             488                     !!    CLOSE(iunit)
+             489                     !!  ELSE
+             490                     !!    WRITE(6,'(2A)') cfile,' does not exist -- skipped'
+             491                     !!  END IF
+             492                     !!  DEALLOCATE(wk)
+             493                     
+             494                       RETURN
+             495                     END SUBROUTINE get_nobs
+             496                     
+             497                     SUBROUTINE read_obs(cfile,nn,elem,rlon,rlat,rlev,odat,oerr)
+             498                       IMPLICIT NONE
+             499                       CHARACTER(*),INTENT(IN) :: cfile
+             500                       INTEGER,INTENT(IN) :: nn
+             501                       REAL(r_size),INTENT(OUT) :: elem(nn) ! element number
+             502                       REAL(r_size),INTENT(OUT) :: rlon(nn)
+             503                       REAL(r_size),INTENT(OUT) :: rlat(nn)
+             504                       REAL(r_size),INTENT(OUT) :: rlev(nn)
+             505                       REAL(r_size),INTENT(OUT) :: odat(nn)
+             506                       REAL(r_size),INTENT(OUT) :: oerr(nn)
+             507                       REAL(r_sngl) :: wk(6)
+             508                       INTEGER :: n,iunit
+             509                     
+             510                       iunit=91
+             511                       OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      elem, rlon, rlat, rlev, odat, oerr
+                                   <<< Loop-information  End >>>
+             512     1   s    s        DO n=1,nn
+             513     1   m    s          READ(iunit) wk
+             514     2   m    m          SELECT CASE(NINT(wk(1)))
+             515     2   s    s          CASE(id_u_obs)
+             516     2   m    m            wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             517     2   s    s          CASE(id_v_obs)
+             518     2   m    m            wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             519     2   s    s          CASE(id_t_obs)
+             520     2   m    m            wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             521     2   s    s          CASE(id_q_obs)
+             522     2   m    m            wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             523     2   s    s          CASE(id_ps_obs)
+             524     2   s    s            wk(5) = wk(5) * 100.0 ! hPa -> Pa
+             525     2   m    m            wk(6) = wk(6) * 100.0 ! hPa -> Pa
+             526     2   s    s          CASE(id_rh_obs)
+             527     2   s    s            wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             528     2   s    s            wk(5) = wk(5) * 0.01 ! percent input
+             529     2   m    m            wk(6) = wk(6) * 0.01 ! percent input
+             530     2   p    v          END SELECT
+             531     1   m    m          elem(n) = REAL(wk(1),r_size)
+             532     1   m    m          rlon(n) = REAL(wk(2),r_size)
+             533     1   m    m          rlat(n) = REAL(wk(3),r_size)
+             534     1   m    m          rlev(n) = REAL(wk(4),r_size)
+             535     1   m    m          odat(n) = REAL(wk(5),r_size)
+             536     1   m    m          oerr(n) = REAL(wk(6),r_size)
+             537     1   p    v        END DO
+             538                       CLOSE(iunit)
+             539                     
+             540                       RETURN
+             541                     END SUBROUTINE read_obs
+             542                     
+             543                     SUBROUTINE read_obs2(cfile, nn, elem, rlon, rlat, rlev, odat, oerr, ohx, oqc)
+             544                       IMPLICIT NONE
+             545                       CHARACTER(*), INTENT(IN) :: cfile
+             546                       INTEGER, INTENT(IN) :: nn
+             547                       REAL(r_size), INTENT(OUT) :: elem(nn) ! element number
+             548                       REAL(r_size), INTENT(OUT) :: rlon(nn)
+             549                       REAL(r_size), INTENT(OUT) :: rlat(nn)
+             550                       REAL(r_size), INTENT(OUT) :: rlev(nn)
+             551                       REAL(r_size), INTENT(OUT) :: odat(nn)
+             552                       REAL(r_size), INTENT(OUT) :: oerr(nn)
+             553                       REAL(r_size), INTENT(OUT) :: ohx(nn)
+             554                       INTEGER, INTENT(OUT) :: oqc(nn)
+             555                       integer, parameter :: nread = 10000
+             556                       REAL(r_sngl) :: wk(8, 0:nread)
+             557                       INTEGER :: n,iunit
+             558                       integer m, mmax, n0, n1
+             559                     
+             560                       mmax = nn / nread
+             561                       if(mod(nn, nread) > 0) mmax = mmax + 1
+             562                     
+             563                       iunit=91
+             564                       OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+             565     1                 do m = 1, mmax
+             566     1                    n0 = (m - 1) * nread + 1
+             567     1                    n1 = m * nread
+             568     1                    if(n1 > nn) n1 = nn
+             569     2   s    s           do n = n0, n1
+             570     2   s    s              read(iunit) wk(:, n - n0)
+             571     2   s    s           end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 79
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wk, elem, rlon, rlat, rlev, odat, oerr
+                                   <<<      ohx, oqc
+                                   <<<    PREFETCH(SOFT) : 14
+                                   <<<     SEQUENTIAL : 14
+                                   <<<      wk: 14
+                                   <<< Loop-information  End >>>
+             572     2  pp    s           do n = n0, n1
+             573     3   p    m              SELECT CASE(NINT(wk(1, n - n0)))
+             574     3   p    s              CASE(id_u_obs)
+             575     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0 ! hPa -> Pa
+             576     3   p    s              CASE(id_v_obs)
+             577     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0 ! hPa -> Pa
+             578     3   p    s              CASE(id_t_obs)
+             579     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0 ! hPa -> Pa
+             580     3   p    s              CASE(id_q_obs)
+             581     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0 ! hPa -> Pa
+             582     3   p    s              CASE(id_ps_obs)
+             583     3   p    s                 wk(5, n - n0) = wk(5, n - n0) * 100.0d0 ! hPa -> Pa
+             584     3   p    m                 wk(6, n - n0) = wk(6, n - n0) * 100.0d0 ! hPa -> Pa
+             585     3   p    s              CASE(id_rh_obs)
+             586     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0 ! hPa -> Pa
+             587     3   p    s                 wk(5, n - n0) = wk(5, n - n0) * 0.01d0 ! percent input
+             588     3   p    s                 wk(6, n - n0) = wk(6, n - n0) * 0.01d0 ! percent input
+             589     3   p    s              CASE(  id_rain_obs ) !!! taeka to here
+             590     3   p    s                 wk(4, n - n0) = wk(4, n - n0) * 100.0d0
+             591     3   p    v              END SELECT
+             592     2               
+             593     2   p    v              elem(n) = REAL(wk(1, n - n0), r_size)
+             594     2   p    v              rlon(n) = REAL(wk(2, n - n0), r_size)
+             595     2   p    v              rlat(n) = REAL(wk(3, n - n0), r_size)
+             596     2   p    v              rlev(n) = REAL(wk(4, n - n0), r_size)
+             597     2   p    v              odat(n) = REAL(wk(5, n - n0), r_size)
+             598     2   p    v              oerr(n) = REAL(wk(6, n - n0), r_size)
+             599     2   p    v              ohx(n)  = REAL(wk(7, n - n0), r_size)
+             600     2   p    v              oqc(n)  = NINT(wk(8, n - n0))
+             601     2   p    v           end do
+             602     1                 END DO
+             603                       CLOSE(iunit)
+             604                     
+             605                       RETURN
+             606                     END SUBROUTINE read_obs2
+             607                     
+             608                     
+             609                     !!SUBROUTINE read_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc)
+             610                     !!  IMPLICIT NONE
+             611                     !!  CHARACTER(*),INTENT(IN) :: cfile
+             612                     !!  INTEGER,INTENT(IN) :: nn
+             613                     !!  REAL(r_size),INTENT(OUT) :: elem(nn) ! element number
+             614                     !!  REAL(r_size),INTENT(OUT) :: rlon(nn)
+             615                     !!  REAL(r_size),INTENT(OUT) :: rlat(nn)
+             616                     !!  REAL(r_size),INTENT(OUT) :: rlev(nn)
+             617                     !!  REAL(r_size),INTENT(OUT) :: odat(nn)
+             618                     !!  REAL(r_size),INTENT(OUT) :: oerr(nn)
+             619                     !!  REAL(r_size),INTENT(OUT) :: ohx(nn)
+             620                     !!  INTEGER,INTENT(OUT) :: oqc(nn)
+             621                     !!  REAL(r_sngl) :: wk(8)
+             622                     !!  INTEGER :: n,iunit
+             623                     !!
+             624                     !!  iunit=91
+             625                     !!  OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+             626                     !!  DO n=1,nn
+             627                     !!    READ(iunit) wk
+             628                     !!    SELECT CASE(NINT(wk(1)))
+             629                     !!    CASE(id_u_obs)
+             630                     !!      wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             631                     !!    CASE(id_v_obs)
+             632                     !!      wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             633                     !!    CASE(id_t_obs)
+             634                     !!      wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             635                     !!    CASE(id_q_obs)
+             636                     !!      wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             637                     !!    CASE(id_ps_obs)
+             638                     !!      wk(5) = wk(5) * 100.0 ! hPa -> Pa
+             639                     !!      wk(6) = wk(6) * 100.0 ! hPa -> Pa
+             640                     !!    CASE(id_rh_obs)
+             641                     !!      wk(4) = wk(4) * 100.0 ! hPa -> Pa
+             642                     !!      wk(5) = wk(5) * 0.01 ! percent input
+             643                     !!      wk(6) = wk(6) * 0.01 ! percent input
+             644                     !!    END SELECT
+             645                     !!    elem(n) = REAL(wk(1),r_size)
+             646                     !!    rlon(n) = REAL(wk(2),r_size)
+             647                     !!    rlat(n) = REAL(wk(3),r_size)
+             648                     !!    rlev(n) = REAL(wk(4),r_size)
+             649                     !!    odat(n) = REAL(wk(5),r_size)
+             650                     !!    oerr(n) = REAL(wk(6),r_size)
+             651                     !!    ohx(n) = REAL(wk(7),r_size)
+             652                     !!    oqc(n)  = NINT(wk(8))
+             653                     !!  END DO
+             654                     !!  CLOSE(iunit)
+             655                     !!
+             656                     !!  RETURN
+             657                     !!END SUBROUTINE read_obs2
+             658                     
+             659                     SUBROUTINE write_obs2(cfile,nn,elem,rlon,rlat,rlev,odat,oerr,ohx,oqc)
+             660                       IMPLICIT NONE
+             661                       CHARACTER(*),INTENT(IN) :: cfile
+             662                       INTEGER,INTENT(IN) :: nn
+             663                       REAL(r_size),INTENT(IN) :: elem(nn) ! element number
+             664                       REAL(r_size),INTENT(IN) :: rlon(nn)
+             665                       REAL(r_size),INTENT(IN) :: rlat(nn)
+             666                       REAL(r_size),INTENT(IN) :: rlev(nn)
+             667                       REAL(r_size),INTENT(IN) :: odat(nn)
+             668                       REAL(r_size),INTENT(IN) :: oerr(nn)
+             669                       REAL(r_size),INTENT(IN) :: ohx(nn)
+             670                       INTEGER,INTENT(IN) :: oqc(nn)
+             671                       REAL(r_sngl) :: wk(8)
+             672                       INTEGER :: n,iunit
+             673                     
+             674                       iunit=92
+             675                       OPEN(iunit,FILE=cfile,FORM='unformatted',ACCESS='sequential')
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      elem, rlon, rlat, rlev, odat, oerr, ohx
+                                   <<<      oqc
+                                   <<< Loop-information  End >>>
+             676     1   s    s        DO n=1,nn
+             677     1   m    m          wk(1) = REAL(elem(n),r_sngl)
+             678     1   m    m          wk(2) = REAL(rlon(n),r_sngl)
+             679     1   m    m          wk(3) = REAL(rlat(n),r_sngl)
+             680     1   m    m          wk(4) = REAL(rlev(n),r_sngl)
+             681     1   m    m          wk(5) = REAL(odat(n),r_sngl)
+             682     1   m    m          wk(6) = REAL(oerr(n),r_sngl)
+             683     1   m    m          wk(7) = REAL(ohx(n),r_sngl)
+             684     1   m    m          wk(8) = REAL(oqc(n),r_sngl)
+             685     2   m    m          SELECT CASE(NINT(wk(1)))
+             686     2   s    s          CASE(id_u_obs)
+             687     2   m    s            wk(4) = wk(4) * 0.01
+             688     2   s    s          CASE(id_v_obs)
+             689     2   m    s            wk(4) = wk(4) * 0.01
+             690     2   s    s          CASE(id_t_obs)
+             691     2   m    s            wk(4) = wk(4) * 0.01
+             692     2   s    s          CASE(id_q_obs)
+             693     2   m    s            wk(4) = wk(4) * 0.01
+             694     2   s    s          CASE(id_ps_obs)
+             695     2   s    s            wk(5) = wk(5) * 0.01
+             696     2   m    s            wk(6) = wk(6) * 0.01
+             697     2   s    s          CASE(id_rh_obs)
+             698     2   s    s            wk(4) = wk(4) * 0.01
+             699     2   s    s            wk(5) = wk(5) * 100.0
+             700     2   m    s            wk(6) = wk(6) * 100.0
+             701     2   p    v          END SELECT
+             702     1   s    s          WRITE(iunit) wk
+             703     1   p    v        END DO
+             704                       CLOSE(iunit)
+             705                     
+             706                       RETURN
+             707                     END SUBROUTINE write_obs2
+             708                     
+             709                     END MODULE common_obs_speedy
+
+ Diagnostic messages: program name(common_obs_speedy)
+   jwd8220o-i  "common_obs_speedy.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+   jwd2137i-w  "common_obs_speedy.f90", line 29: character length of elements of array constructor must all be the same length.
+  Module subprogram name(Trans_XtoY)
+   jwd2006i-i  "common_obs_speedy.f90", line 45: 'i' is declared but never referenced.
+  Module subprogram name(calc_rh)
+   jwd8209o-i  "common_obs_speedy.f90", line 104: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_obs_speedy.f90", line 112: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_obs_speedy.f90", line 112: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(phys2ijk)
+   jwd8206o-i  "common_obs_speedy.f90", line 163: Division is changed to multiplication by reciprocal.
+   jwd8209o-i  "common_obs_speedy.f90", line 163: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(itpl_2d)
+   jwd8209o-i  "common_obs_speedy.f90", line 236: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_obs_speedy.f90", line 241: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(itpl_3d)
+   jwd8209o-i  "common_obs_speedy.f90", line 268: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_obs_speedy.f90", line 277: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+  Module subprogram name(get_nobs)
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'ips' is declared but never referenced.
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'irh' is declared but never referenced.
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'iq' is declared but never referenced.
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'it' is declared but never referenced.
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'iv' is declared but never referenced.
+   jwd2006i-i  "common_obs_speedy.f90", line 413: 'iu' is declared but never referenced.
+   jwd8201o-i  "common_obs_speedy.f90", line 431: Invariant expression within loop is moved outside loop.
+
+ Procedure information
+   Lines      : 709
+   Statements : 499
+   Stack(byte): 149056
+   Prefetch num: 60
+
+ Total information
+   Procedures       : 1
+   Total lines      : 709
+   Total statements : 499
+   Total stack(byte): 149056
+   Total prefetch num: 60
+

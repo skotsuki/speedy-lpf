@@ -1,0 +1,623 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:54:34 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_mtx.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_mtx"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_mtx
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] Matrix Functions
+               5                     !
+               6                     ! [CREATED:] 07/20/2004 Takemasa Miyoshi
+               7                     ! [UPDATED:] 10/16/2004 Takemasa Miyoshi
+               8                     !
+               9                     ! [PUBLIC:]
+              10                     !   mtx_eigen  : eigenvalue decomposition
+              11                     !   mtx_inv    : real symmetric matrix inverse
+              12                     !   mtx_sqrt   : real symmetric matrix square root
+              13                     !
+              14                     ! [REFERENCES:]
+              15                     !    Core subroutines are adapted from netlib.org
+              16                     !
+              17                     ! [HISTORY:]
+              18                     !  07/20/2003 Takemasa Miyoshi  Created at University of Maryland, College Park
+              19                     !
+              20                     !=======================================================================
+              21                       USE common
+              22                     
+              23                       IMPLICIT NONE
+              24                     
+              25                       PRIVATE
+              26                       PUBLIC :: mtx_eigen, mtx_inv, mtx_sqrt, mtx_inv_rg
+              27                     
+              28                     CONTAINS
+              29                     !=======================================================================
+              30                     !  Eigenvalue decomposition using subroutine rs
+              31                     !    INPUT
+              32                     !      INTEGER :: imode           : mode switch (0: only eiven values)
+              33                     !      INTEGER :: n               : dimension of matrix
+              34                     !      REAL(r_size) :: a(n,n)     : input matrix
+              35                     !    OUTPUT
+              36                     !      REAL(r_size) :: eival(n)   : eiven values in decending order
+              37                     !                                   i.e. eival(1) is the largest
+              38                     !      REAL(r_size) :: eivec(n,n) : eiven vectors
+              39                     !      INTEGER :: nrank_eff       : number of positive eivenvalues
+              40                     !=======================================================================
+              41                     SUBROUTINE mtx_eigen(imode,n,a,eival,eivec,nrank_eff)
+              42                       IMPLICIT NONE
+              43                     
+              44                       INTEGER,INTENT(IN) :: imode ! 0: calculate only eigen values
+              45                       INTEGER,INTENT(IN) :: n
+              46                       REAL(r_size),INTENT(IN) :: a(1:n,1:n)
+              47                       REAL(r_size),INTENT(OUT) :: eival(1:n)
+              48                       REAL(r_size),INTENT(OUT) :: eivec(1:n,1:n)
+              49                       INTEGER,INTENT(OUT) :: nrank_eff
+              50                     
+              51                       REAL(r_dble) :: a8(n,n)
+              52                       REAL(r_dble) :: eival8(n)
+              53                       REAL(r_dble) :: eivec8(n,n)
+              54                       REAL(r_dble) :: wrk1(n)
+              55                       REAL(r_dble) :: wrk2(n)
+              56                       INTEGER :: ierr,i,j
+              57                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a8, eivec8, a
+                                   <<< Loop-information  End >>>
+              58        pp   8v        a8 = a
+              59         p   8v        eivec8 = 0.0d0
+              60                       CALL rs(n,n,a8,eival8,imode,eivec8,wrk1,wrk2,ierr)
+              61     1                 IF( ierr/=0 ) THEN
+              62     1                   WRITE(6,'(A,I)') '!!! ERROR (mtx_eigen): rs error code is ',ierr
+              63     1                   STOP 2
+              64     1                 END IF
+              65                     
+              66                       nrank_eff = n
+              67     1                 IF( eival8(n) > 0 ) THEN
+              68     2                   DO i=1,n
+              69     3                     IF( eival8(i) < ABS(eival8(n))*SQRT(EPSILON(eival8)) ) THEN
+              70     3                       nrank_eff = nrank_eff - 1
+              71     3                       eival8(i) = 0.0d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1778
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eivec8
+                                   <<< Loop-information  End >>>
+              72     3  pp   8v              eivec8(:,i) = 0.0d0
+              73     3                     END IF
+              74     2                   END DO
+              75     1                 ELSE
+              76     1                   WRITE(6,'(A)') '!!! ERROR (mtx_eigen): All Eigenvalues are below 0'
+              77     1                   STOP 2
+              78     1                 END IF
+              79                     
+              80     1                 IF( nrank_eff<n .AND. eival8(1)/=0 ) THEN
+              81     1                   j = 0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eivec8, eivec
+                                   <<< Loop-information  End >>>
+              82     2                   DO i=n,1,-1
+              83     3                     IF( eival8(i) == 0 ) THEN
+              84     3                       eival8(i) = eival8(n-nrank_eff-j)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eivec, eivec8
+                                   <<< Loop-information  End >>>
+              85     3  pp   8v              eivec(:,i) = eivec8(:,n-nrank_eff-j)
+              86     3       8               eival8(n-nrank_eff-j) = 0.0d0
+              87     3   p   8v              eivec8(:,n-nrank_eff-j) = 0.0d0
+              88     3                       j = j+1
+              89     3                     END IF
+              90     2                   END DO
+              91     1                 END IF
+              92                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 7
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eival8, eival, eivec8, eivec
+                                   <<< Loop-information  End >>>
+              93     1  pp             DO i=1,n
+              94     1   p               eival(i) = eival8(n+1-i)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eivec8, eivec
+                                   <<< Loop-information  End >>>
+              95     1   p   8v          eivec(:,i) = eivec8(:,n+1-i)
+              96     1   p             END DO
+              97                     
+              98                       RETURN
+              99                     END SUBROUTINE mtx_eigen
+             100                     !=======================================================================
+             101                     !  Real symmetric matrix inversion using subroutine dspdi
+             102                     !    INPUT
+             103                     !      INTEGER :: n               : dimension of matrix
+             104                     !      REAL(r_size) :: a(n,n)     : input matrix (real symmetric)
+             105                     !    OUTPUT
+             106                     !      REAL(r_size) :: ainv(n,n)  : inverse of a
+             107                     !=======================================================================
+             108                     SUBROUTINE mtx_inv(n,a,ainv)
+             109                       IMPLICIT NONE
+             110                     
+             111                       INTEGER,INTENT(IN) :: n
+             112                       REAL(r_size),INTENT(IN) :: a(1:n,1:n)
+             113                       REAL(r_size),INTENT(OUT) :: ainv(1:n,1:n)
+             114                     
+             115                       REAL(r_dble) :: acmp(n*(n+1)/2)
+             116                       REAL(r_dble) :: det(2)
+             117                       REAL(r_dble) :: work(n)
+             118                       INTEGER :: kpvt(n)
+             119                       INTEGER :: inert(3)
+             120                       INTEGER :: info
+             121                       INTEGER :: i,j,k
+             122                     
+             123     1                 IF(n==1) THEN
+             124     1                   ainv(1,1) = 1.0d0 / a(1,1)
+             125     1                 ELSE
+             126     1               
+             127     1               !-----------------------------------------------------------------------
+             128     1               !  Packed form of matrix
+             129     1               !-----------------------------------------------------------------------
+             130     1                 k=0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a, acmp
+                                   <<< Loop-information  End >>>
+             131     2                 DO j=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1231
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a, acmp
+                                   <<< Loop-information  End >>>
+             132     3  pp   8v          DO i=1,j
+             133     3   p   8v            k = k+1
+             134     3   p   8v            acmp(k) = a(i,j)
+             135     3   p   8v          END DO
+             136     2                 END DO
+             137     1               !-----------------------------------------------------------------------
+             138     1               !  dspfa
+             139     1               !-----------------------------------------------------------------------
+             140     1                 CALL dspfa(acmp,n,kpvt,info)
+             141     2                 IF(info /= 0) THEN
+             142     2                   WRITE(6,'(A,I)') '!!! ERROR (mtx_inv): dspfa error code is ',info
+             143     2                   STOP 3
+             144     2                 END IF
+             145     1               !-----------------------------------------------------------------------
+             146     1               !  dspdi
+             147     1               !-----------------------------------------------------------------------
+             148     1                 CALL dspdi(acmp,n,kpvt,det,inert,work,001)
+             149     1               !-----------------------------------------------------------------------
+             150     1               !  unpack matrix
+             151     1               !-----------------------------------------------------------------------
+             152     1                 k=0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      acmp, ainv
+                                   <<< Loop-information  End >>>
+             153     2   s             DO j=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 640
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      acmp, ainv
+                                   <<< Loop-information  End >>>
+             154     3  pp   8v          DO i=1,j
+             155     3   p   8v            k = k+1
+             156     3   p   8v            ainv(i,j) = acmp(k)
+             157     3   p   8v          END DO
+             158     2   p             END DO
+             159     1               
+             160     2                 DO j=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1067
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ainv
+                                   <<< Loop-information  End >>>
+             161     3  pp    v          DO i=j+1,n
+             162     3   p    v            ainv(i,j) = ainv(j,i)
+             163     3   p    v          END DO
+             164     2                 END DO
+             165     1               
+             166     1                 END IF
+             167                     
+             168                       RETURN
+             169                     END SUBROUTINE mtx_inv
+             170                     !=======================================================================
+             171                     !  Compute square root of real symmetric matrix
+             172                     !    INPUT
+             173                     !      INTEGER :: n                : dimension of matrix
+             174                     !      REAL(r_size) :: a(n,n)      : input matrix (real symmetric)
+             175                     !    OUTPUT
+             176                     !      REAL(r_size) :: a_sqrt(n,n) : square root of a
+             177                     !=======================================================================
+             178                     SUBROUTINE mtx_sqrt(n,a,a_sqrt)
+             179                       IMPLICIT NONE
+             180                     
+             181                       INTEGER,INTENT(IN) :: n
+             182                       REAL(r_size),INTENT(IN) :: a(1:n,1:n)
+             183                       REAL(r_size),INTENT(OUT) :: a_sqrt(1:n,1:n)
+             184                     
+             185                       REAL(r_size) :: eival(n)   ! holds eivenvalue of a
+             186                       REAL(r_size) :: eivec(n,n) ! holds eivenvector of a
+             187                       REAL(r_size) :: wk(n,n)
+             188                       INTEGER :: i,j,k
+             189                     
+             190                       CALL mtx_eigen(1,n,a,eival,eivec,i)
+             191                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      eival, eivec, wk
+                                   <<< Loop-information  End >>>
+             192     1  pp             DO i=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wk, eivec
+                                   <<< Loop-information  End >>>
+             193     1   p   8v          wk(:,i) = eivec(:,i) * SQRT( eival(i) )
+             194     1   p             END DO
+             195                     
+             196                     !  a_sqrt = matmul(wk,transpose(eivec))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SPLIT
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wk, a_sqrt
+                                   <<<    PREFETCH(SOFT) : 2
+                                   <<<     SEQUENTIAL : 2
+                                   <<<      eivec: 2
+                                   <<< Loop-information  End >>>
+             197     1  pp             DO j=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 640
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a_sqrt, wk
+                                   <<< Loop-information  End >>>
+             198     2  pp   8v          DO i=1,n
+             199     2   p   8v            a_sqrt(i,j) = wk(i,1)*eivec(j,1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 2)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      wk, a_sqrt
+                                   <<< Loop-information  End >>>
+             200     3   p   8             DO k=2,n
+             201     3   p   8v              a_sqrt(i,j) = a_sqrt(i,j) + wk(i,k)*eivec(j,k)
+             202     3   p   8             END DO
+             203     2   p   8v          END DO
+             204     1   p             END DO
+             205                     
+             206                       RETURN
+             207                     END SUBROUTINE mtx_sqrt
+             208                     !=======================================================================
+             209                     !  Compute inverse of a real matrix (not necessarily symmetric)
+             210                     !    INPUT
+             211                     !      INTEGER :: n            : dimension of matrix
+             212                     !      REAL(r_size) :: aa(n,n) : input matrix (real symmetric)
+             213                     !    OUTPUT
+             214                     !      REAL(r_size) :: ff(n,n) : square root of a
+             215                     !*** COPIED FROM 'A0568.NEW.FORT(MTXINV)' ON 1989.10.1
+             216                     !    changed to free format by H.Yoshimura 2000.06.27
+             217                     !    adapted by T.Miyoshi on 2005.10.31
+             218                     !=======================================================================
+             219                     SUBROUTINE mtx_inv_rg(n,aa,ff)
+             220                     !
+             221                     !##  MATRIX INVERSION
+             222                     !##  AA IS THE MATRIX TO BE INVERTED
+             223                     !##  FF IS THE INVERSE OF AA
+             224                     !
+             225                       INTEGER,INTENT(IN) :: n
+             226                       REAL(r_size),INTENT(IN) :: aa(n,n)
+             227                       REAL(r_size),INTENT(OUT) :: ff(n,n)
+             228                     !
+             229                       REAL(r_size) :: a(n,n)
+             230                       REAL(r_size) :: b(n,n)
+             231                       REAL(r_size) :: x(n,n)
+             232                     !
+             233                       REAL(r_size) :: c,cc,xx
+             234                       INTEGER :: i,j,n1,k,kp,jx,ii,jr,jp
+             235                     !-------------------------------------------------------
+             236                       n1=n-1
+             237                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 534
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 2)
+                                   <<<    FUSED(lines: 238,244)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      aa, a, b
+                                   <<< Loop-information  End >>>
+             238     1  pp   8s        do i=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 1)
+                                   <<<    FUSED(lines: 239,245)
+                                   <<< Loop-information  End >>>
+             239     2  pp   8           do j=1,n
+             240     2   p   8v            a(i,j)=aa(i,j)
+             241     2   p   8           end do
+             242     1   p   8v        end do
+             243                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED
+                                   <<<    FUSED
+                                   <<< Loop-information  End >>>
+             244     1                 do i=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED
+                                   <<<    FUSED
+                                   <<< Loop-information  End >>>
+             245     2                   do j=1,n
+             246     2   p                 b(i,j)=0.d0
+             247     2   p                 if( i == j ) b(i,j)=1.d0
+             248     2                   end do
+             249     1                 end do
+             250                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 3
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             251     1  pp             do j=1,n
+             252     1   p               c=abs(a(1,j))
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             253     2   p   8v          do i=2,n
+             254     2   p   8v            c=max(c,abs(a(i,j)))
+             255     2   p   8v          end do
+             256     1   p               c=1.d0/c
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             257     2  pp   8v          do i=1,n
+             258     2   p   8v            a(i,j)=a(i,j)*c
+             259     2   p   8v          end do
+             260     1   p               b(j,j)=b(j,j)*c
+             261     1   p             end do
+             262                     !
+             263     1                 do k=1,n1
+             264     1                   c=abs(a(k,k))
+             265     1                   kp=k+1
+             266     1                   jx=k
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<< Loop-information  End >>>
+             267     2  pp   8s          do j=kp,n
+             268     2   p   8v            cc=abs(a(k,j))
+             269     2   p   8s            if ( cc < c ) cycle
+             270     2   p   8s            c=cc
+             271     2   p   8m            jx=j
+             272     2   p   8v          end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             273     2  pp   8v          do i=k,n
+             274     2   p   8v            c=a(i,k)
+             275     2   p   8v            a(i,k)=a(i,jx)
+             276     2   p   8v            a(i,jx)=c
+             277     2   p   8v          end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 800
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      b
+                                   <<< Loop-information  End >>>
+             278     2  pp   8v          do i=1,n
+             279     2   p   8v            c=b(i,k)
+             280     2   p   8v            b(i,k)=b(i,jx)
+             281     2   p   8v            b(i,jx)=c
+             282     2   p   8v          end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             283     2  pp               do j=kp,n
+             284     2   p                 c=a(k,j)/a(k,k)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      b
+                                   <<< Loop-information  End >>>
+             285     3   p   8v            do ii=1,n
+             286     3   p   8v              b(ii,j)=b(ii,j)-c*b(ii,k)
+             287     3   p   8v            end do
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 843
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             288     3  pp   8v            do i=k,n
+             289     3   p   8v              a(i,j)=a(i,j)-c*a(i,k)
+             290     3   p   8v            end do
+             291     2   p               end do
+             292     1                 end do
+             293                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<< Loop-information  End >>>
+             294     1  pp             do ii=1,n
+             295     1   p               x(ii,n)=b(ii,n)/a(n,n)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             296     2   p               do j=1,n1
+             297     2   p                 jr=n-j
+             298     2   p                 jp=jr+1
+             299     2   p                 xx=0.d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      a
+                                   <<< Loop-information  End >>>
+             300     3   p   8v            do i=jp,n
+             301     3   p   8v              xx=xx+a(i,jr)*x(ii,i)
+             302     3   p   8v            end do
+             303     2   p                 x(ii,jr)=(b(ii,jr)-xx)/a(jr,jr)
+             304     2   p               end do
+             305     1   p             end do
+             306                     !
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED
+                                   <<<    COLLAPSED
+                                   <<< Loop-information  End >>>
+             307     1   p             do i=1,n
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 1)
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      x, ff
+                                   <<< Loop-information  End >>>
+             308     2  pp   8v          do j=1,n
+             309     2   p   8v            ff(i,j)=x(i,j)
+             310     2   p   8v          end do
+             311     1   p   8v        end do
+             312                     !
+             313                     END SUBROUTINE mtx_inv_rg
+             314                     
+             315                     END MODULE common_mtx
+
+ Diagnostic messages: program name(common_mtx)
+   jwd8220o-i  "common_mtx.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(mtx_inv_rg)
+   jwd8206o-i  "common_mtx.f90", line 295: Division is changed to multiplication by reciprocal.
+   jwd8208o-i  "common_mtx.f90", line 301: Method of calculating sum or product is changed.
+
+ Procedure information
+   Lines      : 315
+   Statements : 205
+   Stack(byte): 17056
+   Prefetch num: 2
+
+ Total information
+   Procedures       : 1
+   Total lines      : 315
+   Total statements : 205
+   Total stack(byte): 17056
+   Total prefetch num: 2
+

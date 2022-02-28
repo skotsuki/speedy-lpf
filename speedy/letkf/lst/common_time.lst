@@ -1,0 +1,135 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:54:32 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_time.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_time"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_time
+               2                       USE common
+               3                       USE common_mpi
+               4                     
+               5                       IMPLICIT NONE
+               6                     
+               7                       PUBLIC
+               8                     
+               9                     !-----------------------------------------------------------------------
+              10                       REAL(r_size), save :: rtimer00, rtimer01, rtimer
+              11                       REAL(r_size) :: ltimer00, ltimer01, ltimer
+              12                       REAL(r_size) :: ptimer00, ptimer01, ptimer
+              13                       integer, parameter :: slot=20
+              14                       REAL(r_size),allocatable,save :: rtimer_all(:,:), rtimerl(:)
+              15                       REAL(r_size),allocatable,save :: ltimer_all(:,:), ltimerl(:)
+              16                     
+              17                     CONTAINS
+              18                     !-----------------------------------------------------------------------
+              19                     SUBROUTINE set_timer
+              20                       IMPLICIT NONE
+              21                     
+              22                       allocate(rtimer_all(slot,nprocs), rtimerl(slot))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 87
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      rtimer_all
+                                   <<< Loop-information  End >>>
+              23        pp   5v        rtimer_all(:,:) = 0.d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+              24         s   fv        rtimerl(:) = 0.d0
+              25                     
+              26                       allocate(ltimer_all(0:slot,nprocs), ltimerl(0:slot))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 83
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      ltimer_all
+                                   <<< Loop-information  End >>>
+              27        pp   5v        ltimer_all(:,:) = 0.d0
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2000
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+              28         s   fv        ltimerl(:) = 0.d0
+              29                     
+              30                       RETURN
+              31                     END SUBROUTINE set_timer
+              32                     !-----------------------------------------------------------------------
+              33                     SUBROUTINE flash_timer
+              34                       IMPLICIT NONE
+              35                     
+              36                       deallocate(rtimer_all, rtimerl)
+              37                       deallocate(ltimer_all, ltimerl)
+              38                     
+              39                       RETURN
+              40                     END SUBROUTINE flash_timer
+              41                     !-----------------------------------------------------------------------
+              42                     END MODULE common_time
+
+ Procedure information
+   Lines      : 42
+   Statements : 29
+   Stack(byte): 112
+   Prefetch num: 0
+
+ Total information
+   Procedures       : 1
+   Total lines      : 42
+   Total statements : 29
+   Total stack(byte): 112
+   Total prefetch num: 0
+

@@ -1,0 +1,1099 @@
+
+ Fujitsu Fortran Version 2.0.0  Wed Jun 24 11:55:09 2020
+
+ Compilation information
+   Current directory : /fefs/data/o/o140/speedy/letkf-master_jss2_LPF1/speedy/letkf
+   Source file       : common_mpi_speedy.f90
+
+ Option information
+   Command line options : -Kident_mpi -f2004 -Kfast,ocl -NRtrap -Ntl_trt -Kvisimpact -Kmfunc=2 -Kpreex -O3 -Kparallel -Kdynamic_iteration -Cpp -Kprefetch_cache_level=all,prefetch_iteration_L2=50 -Ksimd -Knomfunc -Qi -Qt -Kfed -c -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -Knointentopt -I/opt/FJSVmxlang/GM-2.0.0-07/lib64
+   Cpp options          : -IU1 -I/opt/FJSVmxlang/GM-2.0.0-07/include/mpi/fujitsu -I/opt/FJSVmxlang/GM-2.0.0-07/lib64 -D__FUJITSU -Dunix -Dsparc -D__sparc__ -D__unix -D__sparc -D__frt_version=700 -D__HPC_ACE__ -D__HPC_ACE2__ -D__ELF__ -D__unix__ -D__linux__ -D__linux -Asystem(unix) -Dlinux -otmp -D__sparcv9 -D__sparc_v9__ -D__arch64__
+   Effective options    : -fi -g0 -AE -Free -O3 -Qi,p,t -X9
+                          -x0 -xaccept=nomodule_allocatable
+                          -KHPC_ACE2 -KFLTLD -Kadr44 -Knoauto
+                          -Knoautoobjstack -Knocalleralloc -Kdalign -Keval
+                          -Kfed -Knofenv_access -Kfp_contract -Kfp_relaxed
+                          -Kfsimple -Kilfunc=loop -Knointentopt -Klargepage
+                          -Kloop_blocking -Kloop_fission -Kloop_nofission_if
+                          -Kloop_fusion -Kloop_interchange
+                          -Kloop_nopart_parallel -Kloop_nopart_simd
+                          -Kloop_noversioning -Knolto -Knonf -Kns -Knomfunc
+                          -Kocl -Komitfp -Koptmsg=1 -Kpreex
+                          -Kprefetch_conditional -Kprefetch_noindirect
+                          -Kprefetch_sequential=auto -Kprefetch_nostride
+                          -Kprefetch_cache_level=all -Kprefetch_noinfer
+                          -Kprefetch_iteration_L2=50 -Kprefetch_nostrong
+                          -Kprefetch_strong_L2 -Knoshortloop -Ksimd=auto
+                          -Ksimd_reduction_product -Ksimd_noseparate_stride
+                          -Knostriping -Kswp -Knotemparraystack -Kunroll
+                          -Knouxsimd -KNOXFILL
+                          -Knoopenmp -Kopenmp_noassume_norecurrence
+                          -Kopenmp_noordered_reduction -Kopenmp_notls
+                          -Knothreadsafe -Kparallel -Kparallel_nofp_precision
+                          -Knoarray_private -Kdynamic_iteration -Kreduction
+                          -Kregion_extension
+                          -Nallextput -Nnoalloc_assign
+                          -Ncancel_overtime_compilation -Nnocoarray
+                          -Nnocompdisp -Nnocopyarg -Nfreealloc -Nf90move
+                          -Nnohook_func -Nnohook_time -Nline -Nlst -Nlst=i
+                          -Nlst=p -Nlst=t -Nnomallocfree -Nnoobsfun
+                          -Nquickdbg=noargchk -Nquickdbg=nosubchk
+                          -Nquickdbg=noundef -NRnotrap -Nnorecursive
+                          -Nrt_notune -Nnosave -Nsetvalue=noheap
+                          -Nsetvalue=nostack -Nsetvalue=noscalar
+                          -Nsetvalue=noarray -Nsetvalue=nostruct -Nuse_rodata
+
+ Module "common_mpi_speedy"
+  (inc)(line-no.)(nest)(optimize)
+               1                     MODULE common_mpi_speedy
+               2                     !=======================================================================
+               3                     !
+               4                     ! [PURPOSE:] MPI procedures
+               5                     !
+               6                     ! [ATTENTION:]
+               7                     !   DO NOT COMPILE WITH BOTH INLINE EXPANSION AND OMP OPTIONS TOGETHER
+               8                     !    (Use ONE if you want, but DON'T USE BOTH AT THE SAME TIME)
+               9                     !
+              10                     ! [HISTORY:]
+              11                     !   01/23/2009 Takemasa Miyoshi  created
+              12                     !
+              13                     !=======================================================================
+              14                     !$USE OMP_LIB
+              15                       USE common
+              16                       USE common_mpi
+              17                       USE common_speedy
+              18                       IMPLICIT NONE
+              19                       PUBLIC
+              20                     
+              21                       INTEGER,PARAMETER :: mpibufsize=1000
+              22                       INTEGER,SAVE :: nij1
+              23                       INTEGER,SAVE :: nij1max
+              24                       INTEGER,ALLOCATABLE,SAVE :: nij1node(:)
+              25                       REAL(r_size),ALLOCATABLE,SAVE :: phi1(:)
+              26                       REAL(r_size),ALLOCATABLE,SAVE :: dx1(:),dy1(:)
+              27                       REAL(r_size),ALLOCATABLE,SAVE :: lon1(:),lat1(:)
+              28                     
+              29                     CONTAINS
+              30                     SUBROUTINE set_common_mpi_speedy
+              31                       REAL(r_sngl) :: v3dg(nlon,nlat,nlev,nv3d)
+              32                       REAL(r_sngl) :: v2dg(nlon,nlat,nv2d)
+              33                       REAL(r_size),ALLOCATABLE :: v3d(:,:,:)
+              34                       REAL(r_size),ALLOCATABLE :: v2d(:,:)
+              35                       INTEGER :: i,n
+              36                     
+              37                       WRITE(6,'(A)') 'Hello from set_common_mpi_speedy'
+              38                       i = MOD(nlon*nlat,nprocs)
+              39                       nij1max = (nlon*nlat - i)/nprocs + 1
+              40     1                 IF(myrank < i) THEN
+              41     1                   nij1 = nij1max
+              42     1                 ELSE
+              43     1                   nij1 = nij1max - 1
+              44     1                 END IF
+              45                       WRITE(6,'(A,I3.3,A,I6)') 'MYRANK ',myrank,' number of grid points: nij1= ',nij1
+              46                       ALLOCATE(nij1node(nprocs))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      nij1node
+                                   <<< Loop-information  End >>>
+              47     1  pp   8s        DO n=1,nprocs
+              48     2   p   8m          IF(n-1 < i) THEN
+              49     2   p   8s            nij1node(n) = nij1max
+              50     2   p   8s          ELSE
+              51     2   p   8s            nij1node(n) = nij1max - 1
+              52     2   p   8v          END IF
+              53     1   p   8v        END DO
+              54                     
+              55                       ALLOCATE(phi1(nij1))
+              56                       ALLOCATE(dx1(nij1))
+              57                       ALLOCATE(dy1(nij1))
+              58                       ALLOCATE(lon1(nij1))
+              59                       ALLOCATE(lat1(nij1))
+              60                     
+              61                       ALLOCATE(v3d(nij1,nlev,nv3d))
+              62                       ALLOCATE(v2d(nij1,nv2d))
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 8
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      dx, dy2, lat, lon, v3dg
+                                   <<< Loop-information  End >>>
+              63     1  pp             DO i=1,nlat
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    FULL UNROLLING
+                                   <<< Loop-information  End >>>
+              64     1   p   6v          v3dg(:,i,1,1) = SNGL(dx(i))
+              65     1   p   6v          v3dg(:,i,1,2) = SNGL(dy2(i))
+              66     1   p   6v          v3dg(:,i,1,3) = SNGL(lon(:))
+              67     1   p   6v          v3dg(:,i,1,4) = SNGL(lat(i))
+              68     1   p             END DO
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 942
+                                   <<<  [OPTIMIZATION]
+                                   <<<    COLLAPSED
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2dg, phi0
+                                   <<< Loop-information  End >>>
+              69        pp   8v        v2dg(:,:,1) = SNGL(phi0(:,:))
+              70                       CALL scatter_grd_mpi(0,v3dg,v2dg,v3d,v2d)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, dx1
+                                   <<< Loop-information  End >>>
+              71        pp   8v        dx1(:) = v3d(:,1,1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, dy1
+                                   <<< Loop-information  End >>>
+              72        pp   8v        dy1(:) = v3d(:,1,2)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, lon1
+                                   <<< Loop-information  End >>>
+              73        pp   8v        lon1(:) = v3d(:,1,3)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, lat1
+                                   <<< Loop-information  End >>>
+              74        pp   8v        lat1(:) = v3d(:,1,4)
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1455
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, phi1
+                                   <<< Loop-information  End >>>
+              75        pp   8v        phi1 = v2d(:,1)
+              76                     
+              77                       RETURN
+              78                     END SUBROUTINE set_common_mpi_speedy
+              79                     !-----------------------------------------------------------------------
+              80                     ! Scatter gridded data to processes (nrank -> all)
+              81                     !-----------------------------------------------------------------------
+              82                     SUBROUTINE scatter_grd_mpi(nrank,v3dg,v2dg,v3d,v2d)
+              83                       INTEGER,INTENT(IN) :: nrank
+              84                       REAL(r_sngl),INTENT(IN) :: v3dg(nlon,nlat,nlev,nv3d)
+              85                       REAL(r_sngl),INTENT(IN) :: v2dg(nlon,nlat,nv2d)
+              86                       REAL(r_size),INTENT(OUT) :: v3d(nij1,nlev,nv3d)
+              87                       REAL(r_size),INTENT(OUT) :: v2d(nij1,nv2d)
+              88                     
+              89     1                 IF(mpibufsize > nij1max) THEN
+              90     1                   CALL scatter_grd_mpi_fast(nrank,v3dg,v2dg,v3d,v2d)
+              91     1                 ELSE
+              92     1                   CALL scatter_grd_mpi_safe(nrank,v3dg,v2dg,v3d,v2d)
+              93     1                 END IF
+              94                     
+              95                       RETURN
+              96                     END SUBROUTINE scatter_grd_mpi
+              97                     
+              98                     SUBROUTINE scatter_grd_mpi_1d(nrank,v1dg,v1d)
+              99                       INTEGER,INTENT(IN) :: nrank
+             100                       REAL(r_sngl),INTENT(IN) :: v1dg(nlon,nlat)
+             101                       REAL(r_size),INTENT(OUT) :: v1d(nij1)
+             102                       REAL(r_sngl) :: tmp(nij1max,nprocs)
+             103                       REAL(r_sngl) :: bufs(mpibufsize,nprocs)
+             104                       REAL(r_sngl) :: bufr(mpibufsize)
+             105                       INTEGER :: i,j,ierr,ns,nr
+             106                       INTEGER :: iter,niter
+             107                     
+             108                       ns = mpibufsize
+             109                       nr = ns
+             110                       niter = CEILING(REAL(nij1max)/REAL(mpibufsize))
+             111                     
+             112                       IF(myrank == nrank) CALL grd_to_buf(v1dg(:,:),tmp)
+             113     1                 DO iter=1,niter
+             114     2                   IF(myrank == nrank) THEN
+             115     2                     i = mpibufsize * (iter-1)
+             116     3                     DO j=1,mpibufsize
+             117     3                       i=i+1
+             118     3                       IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             119     3  pp   6v              bufs(j,:) = tmp(i,:)
+             120     3                     END DO
+             121     2                   END IF
+             122     1                   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             123     1                   CALL MPI_SCATTER(bufs,ns,MPI_REAL,&
+             124     1                                  & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             125     1                   i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      bufr: 16, v1d: 16
+                                   <<< Loop-information  End >>>
+             126     2       8           DO j=1,mpibufsize
+             127     2       8              i=i+1
+             128     2       8             IF(i > nij1) EXIT
+             129     2       8             v1d(i) = REAL(bufr(j),r_size)
+             130     2       8           END DO
+             131     1                 END DO
+             132                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             133                     
+             134                       RETURN
+             135                     END SUBROUTINE scatter_grd_mpi_1d
+             136                     
+             137                     
+             138                     
+             139                     SUBROUTINE scatter_grd_mpi_safe(nrank,v3dg,v2dg,v3d,v2d)
+             140                       INTEGER,INTENT(IN) :: nrank
+             141                       REAL(r_sngl),INTENT(IN) :: v3dg(nlon,nlat,nlev,nv3d)
+             142                       REAL(r_sngl),INTENT(IN) :: v2dg(nlon,nlat,nv2d)
+             143                       REAL(r_size),INTENT(OUT) :: v3d(nij1,nlev,nv3d)
+             144                       REAL(r_size),INTENT(OUT) :: v2d(nij1,nv2d)
+             145                       REAL(r_sngl) :: tmp(nij1max,nprocs)
+             146                       REAL(r_sngl) :: bufs(mpibufsize,nprocs)
+             147                       REAL(r_sngl) :: bufr(mpibufsize)
+             148                       INTEGER :: i,j,k,n,ierr,ns,nr
+             149                       INTEGER :: iter,niter
+             150                     
+             151                       ns = mpibufsize
+             152                       nr = ns
+             153                       niter = CEILING(REAL(nij1max)/REAL(mpibufsize))
+             154                     
+             155     1                 DO n=1,nv3d
+             156     2                   DO k=1,nlev
+             157     2                     IF(myrank == nrank) CALL grd_to_buf(v3dg(:,:,k,n),tmp)
+             158     3                     DO iter=1,niter
+             159     4                       IF(myrank == nrank) THEN
+             160     4                         i = mpibufsize * (iter-1)
+             161     5                         DO j=1,mpibufsize
+             162     5                           i=i+1
+             163     5                           IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             164     5  pp   6v                  bufs(j,:) = tmp(i,:)
+             165     5                         END DO
+             166     4                       END IF
+             167     3                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             168     3                       CALL MPI_SCATTER(bufs,ns,MPI_REAL,&
+             169     3                                      & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             170     3                       i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      bufr: 16, v3d: 16
+                                   <<< Loop-information  End >>>
+             171     4       8               DO j=1,mpibufsize
+             172     4       8                 i=i+1
+             173     4       8                 IF(i > nij1) EXIT
+             174     4       8                 v3d(i,k,n) = REAL(bufr(j),r_size)
+             175     4       8               END DO
+             176     3                     END DO
+             177     2                   END DO
+             178     1                 END DO
+             179                     
+             180     1                 DO n=1,nv2d
+             181     1                   IF(myrank == nrank) CALL grd_to_buf(v2dg(:,:,n),tmp)
+             182     2                   DO iter=1,niter
+             183     3                     IF(myrank == nrank) THEN
+             184     3                       i = mpibufsize * (iter-1)
+             185     4                       DO j=1,mpibufsize
+             186     4                         i=i+1
+             187     4                         IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             188     4  pp   6v                bufs(j,:) = tmp(i,:)
+             189     4                       END DO
+             190     3                     END IF
+             191     2                     CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             192     2                     CALL MPI_SCATTER(bufs,ns,MPI_REAL,&
+             193     2                                    & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             194     2                     i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      bufr: 16, v2d: 16
+                                   <<< Loop-information  End >>>
+             195     3       8             DO j=1,mpibufsize
+             196     3       8               i=i+1
+             197     3       8               IF(i > nij1) EXIT
+             198     3       8               v2d(i,n) = REAL(bufr(j),r_size)
+             199     3       8             END DO
+             200     2                   END DO
+             201     1                 END DO
+             202                     
+             203                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             204                     
+             205                       RETURN
+             206                     END SUBROUTINE scatter_grd_mpi_safe
+             207                     
+             208                     SUBROUTINE scatter_grd_mpi_fast(nrank,v3dg,v2dg,v3d,v2d)
+             209                       INTEGER,INTENT(IN) :: nrank
+             210                       REAL(r_sngl),INTENT(IN) :: v3dg(nlon,nlat,nlev,nv3d)
+             211                       REAL(r_sngl),INTENT(IN) :: v2dg(nlon,nlat,nv2d)
+             212                       REAL(r_size),INTENT(OUT) :: v3d(nij1,nlev,nv3d)
+             213                       REAL(r_size),INTENT(OUT) :: v2d(nij1,nv2d)
+             214                       REAL(r_sngl) :: bufs(nij1max,nlevall,nprocs)
+             215                       REAL(r_sngl) :: bufr(nij1max,nlevall)
+             216                       INTEGER :: j,k,n,ierr,ns,nr
+             217                     
+             218                       ns = nij1max * nlevall
+             219                       nr = ns
+             220     1                 IF(myrank == nrank) THEN
+             221     1                   j=0
+             222     2                   DO n=1,nv3d
+             223     3                     DO k=1,nlev
+             224     3                       j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufs, (unknown)
+                                   <<< Loop-information  End >>>
+             225     3  pp   8v              CALL grd_to_buf(v3dg(:,:,k,n),bufs(:,j,:))
+             226     3                     END DO
+             227     2                   END DO
+             228     1               
+             229     2                   DO n=1,nv2d
+             230     2                     j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufs, (unknown)
+                                   <<< Loop-information  End >>>
+             231     2  pp   8v            CALL grd_to_buf(v2dg(:,:,n),bufs(:,j,:))
+             232     2                   END DO
+             233     1                 END IF
+             234                     
+             235                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             236                       CALL MPI_SCATTER(bufs,ns,MPI_REAL,&
+             237                                      & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             238                     
+             239                       j=0
+             240     1   s             DO n=1,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufr, v3d
+                                   <<< Loop-information  End >>>
+             241     2  pp               DO k=1,nlev
+             242     2   p                 j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, bufr
+                                   <<< Loop-information  End >>>
+             243     2   p   8v            v3d(:,k,n) = REAL(bufr(1:nij1,j),r_size)
+             244     2   p               END DO
+             245     1   p             END DO
+             246                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufr, v2d
+                                   <<< Loop-information  End >>>
+             247     1  pp             DO n=1,nv2d
+             248     1   p               j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, bufr
+                                   <<< Loop-information  End >>>
+             249     1   p   8v          v2d(:,n) = REAL(bufr(1:nij1,j),r_size)
+             250     1   p             END DO
+             251                     
+             252                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             253                     
+             254                       RETURN
+             255                     END SUBROUTINE scatter_grd_mpi_fast
+             256                     !-----------------------------------------------------------------------
+             257                     ! Gather gridded data (all -> nrank)
+             258                     !-----------------------------------------------------------------------
+             259                     SUBROUTINE gather_grd_mpi(nrank,v3d,v2d,v3dg,v2dg)
+             260                       INTEGER,INTENT(IN) :: nrank
+             261                       REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,nv3d)
+             262                       REAL(r_size),INTENT(IN) :: v2d(nij1,nv2d)
+             263                       REAL(r_sngl),INTENT(OUT) :: v3dg(nlon,nlat,nlev,nv3d)
+             264                       REAL(r_sngl),INTENT(OUT) :: v2dg(nlon,nlat,nv2d)
+             265                     
+             266     1                 IF(mpibufsize > nij1max) THEN
+             267     1                   CALL gather_grd_mpi_fast(nrank,v3d,v2d,v3dg,v2dg)
+             268     1                 ELSE
+             269     1                   CALL gather_grd_mpi_safe(nrank,v3d,v2d,v3dg,v2dg)
+             270     1                 END IF
+             271                     
+             272                       RETURN
+             273                     END SUBROUTINE gather_grd_mpi
+             274                     
+             275                     SUBROUTINE gather_grd_mpi_safe(nrank,v3d,v2d,v3dg,v2dg)
+             276                       INTEGER,INTENT(IN) :: nrank
+             277                       REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,nv3d)
+             278                       REAL(r_size),INTENT(IN) :: v2d(nij1,nv2d)
+             279                       REAL(r_sngl),INTENT(OUT) :: v3dg(nlon,nlat,nlev,nv3d)
+             280                       REAL(r_sngl),INTENT(OUT) :: v2dg(nlon,nlat,nv2d)
+             281                       REAL(r_sngl) :: tmp(nij1max,nprocs)
+             282                       REAL(r_sngl) :: bufs(mpibufsize)
+             283                       REAL(r_sngl) :: bufr(mpibufsize,nprocs)
+             284                       INTEGER :: i,j,k,n,ierr,ns,nr
+             285                       INTEGER :: iter,niter
+             286                     
+             287                       ns = mpibufsize
+             288                       nr = ns
+             289                       niter = CEILING(REAL(nij1max)/REAL(mpibufsize))
+             290                     
+             291     1                 DO n=1,nv3d
+             292     2                   DO k=1,nlev
+             293     3                     DO iter=1,niter
+             294     3                       i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      v3d: 16, bufs: 16
+                                   <<< Loop-information  End >>>
+             295     4       8               DO j=1,mpibufsize
+             296     4       8                 i=i+1
+             297     4       8                 IF(i > nij1) EXIT
+             298     4       8                 bufs(j) = REAL(v3d(i,k,n),r_sngl)
+             299     4       8               END DO
+             300     3                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             301     3                       CALL MPI_GATHER(bufs,ns,MPI_REAL,&
+             302     3                                     & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             303     4                       IF(myrank == nrank) THEN
+             304     4                         i = mpibufsize * (iter-1)
+             305     5                         DO j=1,mpibufsize
+             306     5                           i=i+1
+             307     5                           IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             308     5  pp   6v                  tmp(i,:) = bufr(j,:)
+             309     5                         END DO
+             310     4                       END IF
+             311     3                     END DO
+             312     2                     IF(myrank == nrank) CALL buf_to_grd(tmp,v3dg(:,:,k,n))
+             313     2                   END DO
+             314     1                 END DO
+             315                     
+             316     1                 DO n=1,nv2d
+             317     2                   DO iter=1,niter
+             318     2                     i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      v2d: 16, bufs: 16
+                                   <<< Loop-information  End >>>
+             319     3       8             DO j=1,mpibufsize
+             320     3       8               i=i+1
+             321     3       8               IF(i > nij1) EXIT
+             322     3       8               bufs(j) = REAL(v2d(i,n),r_sngl)
+             323     3       8             END DO
+             324     2                     CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             325     2                     CALL MPI_GATHER(bufs,ns,MPI_REAL,&
+             326     2                                   & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             327     3                     IF(myrank == nrank) THEN
+             328     3                       i = mpibufsize * (iter-1)
+             329     4                       DO j=1,mpibufsize
+             330     4                         i=i+1
+             331     4                         IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             332     4  pp   6v                tmp(i,:) = bufr(j,:)
+             333     4                       END DO
+             334     3                     END IF
+             335     2                   END DO
+             336     1                   IF(myrank == nrank) CALL buf_to_grd(tmp,v2dg(:,:,n))
+             337     1                 END DO
+             338                     
+             339                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             340                     
+             341                       RETURN
+             342                     END SUBROUTINE gather_grd_mpi_safe
+             343                     
+             344                     SUBROUTINE gather_grd_mpi_1d_dp(nrank,v1d,v1dg)
+             345                       INTEGER,INTENT(IN) :: nrank
+             346                       REAL(r_size),INTENT(IN)  :: v1d(nij1)
+             347                       REAL(r_size),INTENT(OUT) :: v1dg(nlon,nlat)
+             348                       REAL(r_size) :: tmp(nij1max,nprocs)
+             349                       REAL(r_size) :: bufs(mpibufsize)
+             350                       REAL(r_size) :: bufr(mpibufsize,nprocs)
+             351                       INTEGER :: i,j,ierr,ns,nr
+             352                       INTEGER :: iter,niter
+             353                     
+             354                       ns = mpibufsize
+             355                       nr = ns
+             356                       niter = CEILING(REAL(nij1max)/REAL(mpibufsize))
+             357                     
+             358     1                 DO iter=1,niter
+             359     1                   i = mpibufsize * (iter-1)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(SOFT) : 32
+                                   <<<     SEQUENTIAL : 32
+                                   <<<      v1d: 16, bufs: 16
+                                   <<< Loop-information  End >>>
+             360     2       8           DO j=1,mpibufsize
+             361     2       8             i=i+1
+             362     2       8             IF(i > nij1) EXIT
+             363     2       8             bufs(j) = v1d(i)
+             364     2       8           END DO
+             365     1                   CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             366     1                   CALL MPI_GATHER(bufs,ns,MPI_DOUBLE_PRECISION,&
+             367     1                   & bufr,nr,MPI_DOUBLE_PRECISION,nrank,MPI_COMM_WORLD,ierr)
+             368     2                   IF(myrank == nrank) THEN
+             369     2                     i = mpibufsize * (iter-1)
+             370     3                     DO j=1,mpibufsize
+             371     3                       i=i+1
+             372     3                       IF(i > nij1max) EXIT
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 1143
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<< Loop-information  End >>>
+             373     3  pp   6v              tmp(i,:) = bufr(j,:)
+             374     3                     END DO
+             375     2                   END IF
+             376     1                 END DO
+             377                     
+             378                       ! check
+             379                       IF(myrank == nrank) CALL buf_to_grd_dp(tmp,v1dg(:,:))
+             380                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             381                     
+             382                       RETURN
+             383                     END SUBROUTINE gather_grd_mpi_1d_dp
+             384                     
+             385                     SUBROUTINE gather_grd_mpi_fast(nrank,v3d,v2d,v3dg,v2dg)
+             386                       INTEGER,INTENT(IN) :: nrank
+             387                       REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,nv3d)
+             388                       REAL(r_size),INTENT(IN) :: v2d(nij1,nv2d)
+             389                       REAL(r_sngl),INTENT(OUT) :: v3dg(nlon,nlat,nlev,nv3d)
+             390                       REAL(r_sngl),INTENT(OUT) :: v2dg(nlon,nlat,nv2d)
+             391                       REAL(r_sngl) :: bufs(nij1max,nlevall)
+             392                       REAL(r_sngl) :: bufr(nij1max,nlevall,nprocs)
+             393                       INTEGER :: j,k,n,ierr,ns,nr
+             394                     
+             395                       ns = nij1max * nlevall
+             396                       nr = ns
+             397                       j=0
+             398     1                 DO n=1,nv3d
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, bufs
+                                   <<< Loop-information  End >>>
+             399     2  pp               DO k=1,nlev
+             400     2   p                 j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufs, v3d
+                                   <<< Loop-information  End >>>
+             401     2   p   8v            bufs(1:nij1,j) = REAL(v3d(:,k,n),r_sngl)
+             402     2   p               END DO
+             403     1                 END DO
+             404                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, bufs
+                                   <<< Loop-information  End >>>
+             405     1  pp             DO n=1,nv2d
+             406     1   p               j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufs, v2d
+                                   <<< Loop-information  End >>>
+             407     1   p   8v          bufs(1:nij1,j) = REAL(v2d(:,n),r_sngl)
+             408     1   p             END DO
+             409                     
+             410                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             411                       CALL MPI_GATHER(bufs,ns,MPI_REAL,&
+             412                                     & bufr,nr,MPI_REAL,nrank,MPI_COMM_WORLD,ierr)
+             413                     
+             414     1                 IF(myrank == nrank) THEN
+             415     1                   j=0
+             416     2                   DO n=1,nv3d
+             417     3                     DO k=1,nlev
+             418     3                       j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufr, (unknown)
+                                   <<< Loop-information  End >>>
+             419     3  pp   8v              CALL buf_to_grd(bufr(:,j,:),v3dg(:,:,k,n))
+             420     3                     END DO
+             421     2                   END DO
+             422     1               
+             423     2                   DO n=1,nv2d
+             424     2                     j = j+1
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 6
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 8)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      bufr, (unknown)
+                                   <<< Loop-information  End >>>
+             425     2  pp   8v            CALL buf_to_grd(bufr(:,j,:),v2dg(:,:,n))
+             426     2                   END DO
+             427     1                 END IF
+             428                     
+             429                       CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+             430                     
+             431                       RETURN
+             432                     END SUBROUTINE gather_grd_mpi_fast
+             433                     !-----------------------------------------------------------------------
+             434                     ! Read ensemble data and distribute to processes
+             435                     !-----------------------------------------------------------------------
+             436                     SUBROUTINE read_ens_mpi(file,member,v3d,v2d)
+             437                       CHARACTER(4),INTENT(IN) :: file
+             438                       INTEGER,INTENT(IN) :: member
+             439                       REAL(r_size),INTENT(OUT) :: v3d(nij1,nlev,member,nv3d)
+             440                       REAL(r_size),INTENT(OUT) :: v2d(nij1,member,nv2d)
+             441                       REAL(r_sngl) :: v3dg(nlon,nlat,nlev,nv3d)
+             442                       REAL(r_sngl) :: v2dg(nlon,nlat,nv2d)
+             443                       INTEGER :: l,n,ll,im
+             444                       !!CHARACTER(11) :: filename='file000.grd'
+             445                       CHARACTER(26) :: filename='gues/MMMMMM/yyyymmddhh.grd'
+             446                     
+             447                       ll = CEILING(REAL(member)/REAL(nprocs))
+             448     1                 DO l=1,ll
+             449     1                   im = myrank+1 + (l-1)*nprocs
+             450     2                   IF(im <= member) THEN
+             451     2                     !!WRITE(filename(1:7),'(A4,I3.3)') file,im
+             452     2                     WRITE(filename(6:11), '(I6.6)') im
+             453     2                     WRITE(filename(13:22), '(I10.10)') ymdh
+             454     2                     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is reading a file ',filename
+             455     2                     CALL read_grd4(filename,v3dg,v2dg)
+             456     2                   END IF
+             457     1               
+             458     2                   DO n=0,nprocs-1
+             459     2                     im = n+1 + (l-1)*nprocs
+             460     3                     IF(im <= member) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, (unknown), v2d
+                                   <<< Loop-information  End >>>
+             461     3  pp   8v              CALL scatter_grd_mpi(n,v3dg,v2dg,v3d(:,:,im,:),v2d(:,im,:))
+             462     3                     END IF
+             463     2                   END DO
+             464     1                 END DO
+             465                     
+             466                       RETURN
+             467                     END SUBROUTINE read_ens_mpi
+             468                     !-----------------------------------------------------------------------
+             469                     ! Write ensemble data after collecting data from processes
+             470                     !-----------------------------------------------------------------------
+             471                     SUBROUTINE write_ens_mpi(file,member,v3d,v2d)
+             472                       CHARACTER(4),INTENT(IN) :: file
+             473                       INTEGER,INTENT(IN) :: member
+             474                       REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,member,nv3d)
+             475                       REAL(r_size),INTENT(IN) :: v2d(nij1,member,nv2d)
+             476                       REAL(r_sngl) :: v3dg(nlon,nlat,nlev,nv3d)
+             477                       REAL(r_sngl) :: v2dg(nlon,nlat,nv2d)
+             478                       INTEGER :: l,n,ll,im
+             479                       !CHARACTER(11) :: filename='file000.grd'
+             480                       CHARACTER(26) :: filename='anal/MMMMMM/yyyymmddhh.grd'
+             481                     
+             482                       ll = CEILING(REAL(member)/REAL(nprocs))
+             483     1                 DO l=1,ll
+             484     2                   DO n=0,nprocs-1
+             485     2                     im = n+1 + (l-1)*nprocs
+             486     3                     IF(im <= member) THEN
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, (unknown), v2d
+                                   <<< Loop-information  End >>>
+             487     3  pp   8v              CALL gather_grd_mpi(n,v3d(:,:,im,:),v2d(:,im,:),v3dg,v2dg)
+             488     3                     END IF
+             489     2                   END DO
+             490     1               
+             491     1                   im = myrank+1 + (l-1)*nprocs
+             492     2                   IF(im <= member) THEN
+             493     2                     !WRITE(filename(1:7),'(A4,I3.3)') file,im
+             494     2                     WRITE(filename(6:11), '(I6.6)') im
+             495     2                     WRITE(filename(13:22), '(I10.10)') ymdh
+             496     2                     WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename
+             497     2                     CALL write_grd4(filename,v3dg,v2dg)
+             498     2                   END IF
+             499     1                 END DO
+             500                     
+             501                       RETURN
+             502                     END SUBROUTINE write_ens_mpi
+             503                     !-----------------------------------------------------------------------
+             504                     ! gridded data -> buffer
+             505                     !-----------------------------------------------------------------------
+             506                     SUBROUTINE grd_to_buf(grd,buf)
+             507                       REAL(r_sngl),INTENT(IN) :: grd(nlon,nlat)
+             508                       REAL(r_sngl),INTENT(OUT) :: buf(nij1max,nprocs)
+             509                       INTEGER :: i,j,m,ilon,ilat
+             510                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FUSED(lines: 511,520)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      nij1node, buf
+                                   <<< Loop-information  End >>>
+             511     1  pp             DO m=1,nprocs
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      buf
+                                   <<< Loop-information  End >>>
+             512     2   p   4           DO i=1,nij1node(m)
+             513     2   p   4             j = m-1 + nprocs * (i-1)
+             514     2   p   4             ilon = MOD(j,nlon) + 1
+             515     2   p   4             ilat = (j-ilon+1) / nlon + 1
+             516     2   p   4             buf(i,m) = grd(ilon,ilat)
+             517     2   p   4           END DO
+             518     1   p             END DO
+             519                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    FUSED
+                                   <<< Loop-information  End >>>
+             520     1                 DO m=1,nprocs
+             521     1   p               IF(nij1node(m) < nij1max) buf(nij1max,m) = undef
+             522     1                 END DO
+             523                     
+             524                       RETURN
+             525                     END SUBROUTINE grd_to_buf
+             526                     !-----------------------------------------------------------------------
+             527                     ! buffer -> gridded data
+             528                     !-----------------------------------------------------------------------
+             529                     SUBROUTINE buf_to_grd(buf,grd)
+             530                       REAL(r_sngl),INTENT(IN) :: buf(nij1max,nprocs)
+             531                       REAL(r_sngl),INTENT(OUT) :: grd(nlon,nlat)
+             532                       INTEGER :: i,j,m,ilon,ilat
+             533                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      nij1node, buf
+                                   <<< Loop-information  End >>>
+             534     1                 DO m=1,nprocs
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      buf
+                                   <<< Loop-information  End >>>
+             535     2   s   4           DO i=1,nij1node(m)
+             536     2   p   4             j = m-1 + nprocs * (i-1)
+             537     2   p   4             ilon = MOD(j,nlon) + 1
+             538     2   p   4             ilat = (j-ilon+1) / nlon + 1
+             539     2   m   4             grd(ilon,ilat) = buf(i,m)
+             540     2   p   4           END DO
+             541     1                 END DO
+             542                     
+             543                       RETURN
+             544                     END SUBROUTINE buf_to_grd
+             545                     !-----------------------------------------------------------------------
+             546                     SUBROUTINE buf_to_grd_dp(buf,grd)
+             547                       REAL(r_size),INTENT(IN) :: buf(nij1max,nprocs)
+             548                       REAL(r_size),INTENT(OUT) :: grd(nlon,nlat)
+             549                       INTEGER :: i,j,m,ilon,ilat
+             550                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      nij1node, buf
+                                   <<< Loop-information  End >>>
+             551     1                 DO m=1,nprocs
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      buf
+                                   <<< Loop-information  End >>>
+             552     2   s   4           DO i=1,nij1node(m)
+             553     2   p   4             j = m-1 + nprocs * (i-1)
+             554     2   p   4             ilon = MOD(j,nlon) + 1
+             555     2   p   4             ilat = (j-ilon+1) / nlon + 1
+             556     2   m   4             grd(ilon,ilat) = buf(i,m)
+             557     2   p   4           END DO
+             558     1                 END DO
+             559                     
+             560                       RETURN
+             561                     END SUBROUTINE buf_to_grd_dp
+             562                     !-----------------------------------------------------------------------
+             563                     ! STORING DATA (ensemble mean and spread)
+             564                     !-----------------------------------------------------------------------
+             565                     SUBROUTINE write_ensmspr_mpi(file,member,v3d,v2d)
+             566                       CHARACTER(4),INTENT(IN) :: file
+             567                       INTEGER,INTENT(IN) :: member
+             568                       REAL(r_size),INTENT(IN) :: v3d(nij1,nlev,member,nv3d)
+             569                       REAL(r_size),INTENT(IN) :: v2d(nij1,member,nv2d)
+             570                       REAL(r_size) :: v3dm(nij1,nlev,nv3d)
+             571                       REAL(r_size) :: v2dm(nij1,nv2d)
+             572                       REAL(r_size) :: v3ds(nij1,nlev,nv3d)
+             573                       REAL(r_size) :: v2ds(nij1,nv2d)
+             574                       REAL(r_size) :: v3dk(nij1,nlev,nv3d)
+             575                       REAL(r_size) :: v2dk(nij1,nv2d)
+             576                       REAL(r_sngl) :: v3dg(nlon,nlat,nlev,nv3d)
+             577                       REAL(r_sngl) :: v2dg(nlon,nlat,nv2d)
+             578                       INTEGER :: i,k,m,n
+             579                       !CHARACTER(11) :: filename='file000.grd'
+             580                       CHARACTER(24) :: filename='file/mesp/yyyymmddhh.grd'
+             581                     
+             582                       CALL ensmean_grd(member,nij1,v3d,v2d,v3dm,v2dm)
+             583                     
+             584                       CALL gather_grd_mpi(0,v3dm,v2dm,v3dg,v2dg)
+             585     1                 IF(myrank == 0) THEN
+             586     1                   !WRITE(filename(1:7),'(A4,A3)') file,'_me'
+             587     1                   WRITE(filename(1:4),  '(A4)') file
+             588     1                   WRITE(filename(6:9),  '(A4)') 'mean'
+             589     1                   WRITE(filename(11:20),'(I10)') ymdh
+             590     1               
+             591     1                   WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename
+             592     1                   CALL write_grd4(filename,v3dg,v2dg)
+             593     1                 END IF
+             594                     
+             595                       !==> KLD based on KK
+             596                       CALL enskldv_grd(member,nij1,v3d,v2d,v3dk,v2dk)
+             597                       CALL gather_grd_mpi(0,v3dk,v2dk,v3dg,v2dg)
+             598     1                 IF(myrank == 0) THEN
+             599     1                   !WRITE(filename(1:7),'(A4,A3)') file,'_me'
+             600     1                   WRITE(filename(1:4),  '(A4)') file
+             601     1                   WRITE(filename(6:9),  '(A4)') 'kldv'
+             602     1                   WRITE(filename(11:20),'(I10)') ymdh
+             603     1               
+             604     1                   WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename
+             605     1                   CALL write_grd4(filename,v3dg,v2dg)
+             606     1                 END IF
+             607                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SPLIT
+                                   <<< Loop-information  End >>>
+             608     1  pp             DO n=1,nv3d
+             609     1               !$OMP PARALLEL DO PRIVATE(i,k,m)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v3dm, v3ds
+                                   <<< Loop-information  End >>>
+             610     2   p               DO k=1,nlev
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v3dm, v3ds
+                                   <<< Loop-information  End >>>
+             611     3   p   6v            DO i=1,nij1
+             612     3   p   6v              v3ds(i,k,n) = (v3d(i,k,1,n)-v3dm(i,k,n))**2
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 3)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v3d, v3dm, v3ds
+                                   <<< Loop-information  End >>>
+             613     4   p   6               DO m=2,member
+             614     4   p   6v                v3ds(i,k,n) = v3ds(i,k,n) + (v3d(i,k,m,n)-v3dm(i,k,n))**2
+             615     4   p   6v              END DO
+             616     3   p   6v              v3ds(i,k,n) = SQRT(v3ds(i,k,n) / REAL(member-1,r_size))
+             617     3   p   6v            END DO
+             618     2   p               END DO
+             619     1               !$OMP END PARALLEL DO
+             620     1   p             END DO
+             621                     
+                                   <<< Loop-information Start >>>
+                                   <<<  [PARALLELIZATION]
+                                   <<<    Standard iteration count: 2
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SPLIT
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, v2dm, v2ds
+                                   <<< Loop-information  End >>>
+             622     1  pp             DO n=1,nv2d
+             623     1               !$OMP PARALLEL DO PRIVATE(i,k,m)
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    SIMD(VL: 4)
+                                   <<<    SOFTWARE PIPELINING
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, v2dm, v2ds
+                                   <<< Loop-information  End >>>
+             624     2   p   6v          DO i=1,nij1
+             625     2   p   6v            v2ds(i,n) = (v2d(i,1,n)-v2dm(i,n))**2
+                                   <<< Loop-information Start >>>
+                                   <<<  [OPTIMIZATION]
+                                   <<<    INTERCHANGED(nest: 2)
+                                   <<<    PREFETCH(HARD) Expected by compiler :
+                                   <<<      v2d, v2dm, v2ds
+                                   <<< Loop-information  End >>>
+             626     3   p   6             DO m=2,member
+             627     3   p   6v              v2ds(i,n) = v2ds(i,n) + (v2d(i,m,n)-v2dm(i,n))**2
+             628     3   p   6v            END DO
+             629     2   p   6v            v2ds(i,n) = SQRT(v2ds(i,n) / REAL(member-1,r_size))
+             630     2   p   6v          END DO
+             631     1               !$OMP END PARALLEL DO
+             632     1   p             END DO
+             633                     
+             634                       CALL gather_grd_mpi(0,v3ds,v2ds,v3dg,v2dg)
+             635     1                 IF(myrank == 0) THEN
+             636     1                   !WRITE(filename(1:7),'(A4,A3)') file,'_sp'
+             637     1                   WRITE(filename(1:4),  '(A4)') file
+             638     1                   WRITE(filename(6:9),  '(A4)') 'sprd'
+             639     1                   WRITE(filename(11:20),'(I10)') ymdh
+             640     1                   WRITE(6,'(A,I3.3,2A)') 'MYRANK ',myrank,' is writing a file ',filename
+             641     1                   CALL write_grd4(filename,v3dg,v2dg)
+             642     1                 END IF
+             643                     
+             644                       RETURN
+             645                     END SUBROUTINE write_ensmspr_mpi
+             646                     !-----------------------------------------------------------------------
+             647                     ! Make iseed for com_randns based on grid number ! from kk
+             648                     !-----------------------------------------------------------------------
+             649                     SUBROUTINE mk_iseed(ymdh, ij,ilev,n,iseed)
+             650                       INTEGER, INTENT(IN) :: ymdh, ij, ilev, n
+             651                       INTEGER, INTENT(OUT) :: iseed
+             652                       INTEGER :: index_grd
+             653                       INTEGER :: index_date
+             654                       INTEGER :: dd, hh
+             655                       integer :: ymdhtmp=1982123112
+             656                     
+             657                     ! hh = ymdhtmp-nint(ymdhtmp*0.01d0)*100
+             658                     ! dd = nint( (ymdhtmp-nint(ymdhtmp*0.0001d0)*10000-hh) * 0.01d0)
+             659                       hh = ymdh-nint(ymdh*0.01d0)*100
+             660                       dd = nint( (ymdh-nint(ymdh*0.0001d0)*10000-hh) * 0.01d0)
+             661                       index_date = (dd-1)*24 + hh
+             662                       index_grd = (ij-1)*nprocs + myrank+1
+             663                       iseed = index_date*1000 + index_grd*100 + n*10 + ilev
+             664                     
+             665                       RETURN
+             666                     END SUBROUTINE mk_iseed
+             667                     END MODULE common_mpi_speedy
+
+ Diagnostic messages: program name(common_mpi_speedy)
+   jwd8220o-i  "common_mpi_speedy.f90", line 1: Optimizations is performed in this program unit with possibility of side effects. See informational messages below to determine which such optimizations have been performed.
+  Module subprogram name(scatter_grd_mpi_1d)
+   jwd8206o-i  "common_mpi_speedy.f90", line 110: Division is changed to multiplication by reciprocal.
+  Module subprogram name(scatter_grd_mpi_safe)
+   jwd8206o-i  "common_mpi_speedy.f90", line 153: Division is changed to multiplication by reciprocal.
+  Module subprogram name(gather_grd_mpi_safe)
+   jwd8206o-i  "common_mpi_speedy.f90", line 289: Division is changed to multiplication by reciprocal.
+  Module subprogram name(gather_grd_mpi_1d_dp)
+   jwd8206o-i  "common_mpi_speedy.f90", line 356: Division is changed to multiplication by reciprocal.
+  Module subprogram name(read_ens_mpi)
+   jwd2008i-i  "common_mpi_speedy.f90", line 436: Dummy argument 'file' not used in this subprogram.
+  Module subprogram name(write_ens_mpi)
+   jwd2008i-i  "common_mpi_speedy.f90", line 471: Dummy argument 'file' not used in this subprogram.
+  Module subprogram name(write_ensmspr_mpi)
+   jwd8201o-i  "common_mpi_speedy.f90", line 611: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "common_mpi_speedy.f90", line 612: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8209o-i  "common_mpi_speedy.f90", line 616: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_mpi_speedy.f90", line 616: Division is changed to multiplication by reciprocal.
+   jwd8201o-i  "common_mpi_speedy.f90", line 624: Invariant expression within loop is moved outside loop.
+   jwd8209o-i  "common_mpi_speedy.f90", line 627: Evaluation order of polynomial expression is changed according to commutative law of addition and multiplication.
+   jwd8206o-i  "common_mpi_speedy.f90", line 629: Division is changed to multiplication by reciprocal.
+
+ Procedure information
+   Lines      : 667
+   Statements : 532
+   Stack(byte): 2512
+   Prefetch num: 192
+
+ Total information
+   Procedures       : 1
+   Total lines      : 667
+   Total statements : 532
+   Total stack(byte): 2512
+   Total prefetch num: 192
+
