@@ -1,0 +1,6 @@
+  &adjst_param
+    nsmp        =  8,
+    dstfile     = '/home/kotsuki/daschool_chk/letkf-master_hakushu_skad3_xlng/speedy/src_LTERPLUT/inpdata/dist_all2all.grd',
+    grdfile     = '/home/kotsuki/daschool_chk/letkf-master_hakushu_skad3_xlng/speedy/src_LTERPLUT/inpdata/grid_all2all.grd',
+    raobtbl     = '/home/kotsuki/daschool_chk/letkf-master_hakushu_skad3_xlng/speedy/src_LTERPLUT/../obs/station_raob.tbl'
+  /
