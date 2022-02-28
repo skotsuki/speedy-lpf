@@ -1,0 +1,12 @@
+# This file contains the parameters for the test to run you must #
+# put a space between each test parameter and obey the following #
+# syntax :                                                       #
+# (blank line)                                                   #
+# <type1> <type2> ...                                            #
+# <rand1> <rand2> ...                                            #
+# <samp1> <samp2> ...                                            #
+
+1
+0
+5 6 7
+
