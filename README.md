@@ -8,7 +8,7 @@ SPEEDY-LPF
 ## Quick setup
 ### 0. requirements
 
-- gfortran-10 or higher or ifort
+- intel fortran (ifort) or gfortran-10 (or higher version) 
 - OpenMPI or MPICH for mpi
 - bash
 - cmake
